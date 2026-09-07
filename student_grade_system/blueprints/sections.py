@@ -30,13 +30,27 @@ def add_course_section():
     if CourseSectionModel.query.filter_by(section_code=code).first():
         flash(f'Mã lớp học phần "{code}" đã tồn tại!', 'danger')
         return redirect(url_for('course_sections_manager'))
+
+    day = request.form.get('schedule_day', '').strip()
+    shift = request.form.get('schedule_shift', '').strip()
+    custom = request.form.get('schedule_custom', '').strip()
+
+    if custom:
+        schedule_str = custom
+    elif day and shift:
+        schedule_str = f"{day} - {shift}"
+    elif day:
+        schedule_str = day
+    else:
+        schedule_str = request.form.get('schedule', '').strip() or None
+
     section = CourseSectionModel(section_code=code,
                                  subject_id=request.form.get('subject_id'),
                                  semester_id=request.form.get('semester_id'),
                                  teacher_id=request.form.get('teacher_id') or None,
                                  max_students=request.form.get('max_students', type=int) or 50,
                                  room=request.form.get('room', '').strip() or None,
-                                 schedule=request.form.get('schedule', '').strip() or None,
+                                 schedule=schedule_str,
                                  status=request.form.get('status', 'open'))
     db.session.add(section)
     db.session.commit()
@@ -78,10 +92,43 @@ def enrollments_page():
     user = UserModel.query.filter_by(username=session.get('username')).first()
     my_enrollments = []
     registered_section_ids = set()
+    conflicting_section_ids = set()
+
     if user and user.student_id:
         my_enrollments = EnrollmentModel.query.filter_by(student_id=user.student_id).all()
         registered_section_ids = {e.section_id for e in my_enrollments if e.status == 'registered'}
-    return render_template('enrollments.html', sections=sections, my_enrollments=my_enrollments, registered_section_ids=registered_section_ids)
+
+        for s in sections:
+            if s.id not in registered_section_ids:
+                is_conflict, _ = StudentService.check_schedule_conflict(user.student_id, s)
+                if is_conflict:
+                    conflicting_section_ids.add(s.id)
+
+    filter_day = request.args.get('day', '').strip()
+    filter_shift = request.args.get('shift', '').strip()
+    hide_conflict = request.args.get('hide_conflict') == '1'
+
+    filtered_sections = []
+    for s in sections:
+        if hide_conflict and s.id in conflicting_section_ids:
+            continue
+
+        sched_text = (s.schedule or '').lower()
+        if filter_day and filter_day.lower() not in sched_text:
+            continue
+        if filter_shift and filter_shift.lower() not in sched_text:
+            continue
+
+        filtered_sections.append(s)
+
+    return render_template('enrollments.html',
+                           sections=filtered_sections,
+                           my_enrollments=my_enrollments,
+                           registered_section_ids=registered_section_ids,
+                           conflicting_section_ids=conflicting_section_ids,
+                           filter_day=filter_day,
+                           filter_shift=filter_shift,
+                           hide_conflict=hide_conflict)
 
 
 @sections_bp.route('/enrollments/register/<int:section_id>', methods=['POST'], endpoint='register_section')

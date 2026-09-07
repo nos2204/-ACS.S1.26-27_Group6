@@ -3,35 +3,60 @@
 
 {% block content %}
 <div class="row g-3">
+    <!-- Form thêm môn học mới -->
     <div class="col-md-4">
         <div class="card shadow-sm">
-            <div class="card-header fw-semibold">
+            <div class="card-header fw-semibold bg-primary text-white">
                 <i class="bi bi-plus-circle me-2"></i>Thêm môn học mới
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('add_subject') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
-                        <label class="form-label">Mã môn học <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Mã môn học <span class="text-danger">*</span></label>
                         <input type="text" name="subject_code" class="form-control" required placeholder="VD: INT1234">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Tên môn học <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Tên môn học <span class="text-danger">*</span></label>
                         <input type="text" name="subject_name" class="form-control" required placeholder="VD: Lập trình Python">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Số tín chỉ <span class="text-danger">*</span></label>
-                        <input type="number" name="credits" class="form-control" required min="1" max="6" value="3">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Số tín chỉ <span class="text-danger">*</span></label>
+                            <input type="number" name="credits" class="form-control" required min="1" max="6" value="3">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Khoa / Ngành</label>
+                            <select name="department_id" class="form-select">
+                                <option value="">— Chưa xác định —</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Tỷ lệ QT (0-1)</label>
+                            <input type="number" step="0.05" name="progress_weight" class="form-control" value="0.4" min="0" max="1">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Tỷ lệ Thi (0-1)</label>
+                            <input type="number" step="0.05" name="exam_weight" class="form-control" value="0.6" min="0" max="1">
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Khoa / Ngành</label>
-                        <select name="department_id" class="form-select">
-                            <option value="">— Chưa xác định —</option>
-                            {% for dept in departments %}
-                            <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                        <label class="form-label fw-semibold">Môn học tiên quyết</label>
+                        <select name="prerequisites" class="form-select" multiple size="3" title="Giữ Ctrl để chọn nhiều môn">
+                            {% for s in subjects %}
+                            <option value="{{ s.id }}">{{ s.subject_code }} - {{ s.subject_name }}</option>
                             {% endfor %}
                         </select>
+                        <small class="text-muted">Giữ Ctrl/Cmd để chọn nhiều môn học tiên quyết</small>
                     </div>
+
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-save me-1"></i>Lưu môn học
                     </button>
@@ -40,61 +65,81 @@
         </div>
     </div>
 
+    <!-- Danh sách môn học -->
     <div class="col-md-8">
         <div class="card shadow-sm">
-            <div class="card-header fw-semibold d-flex justify-content-between">
+            <div class="card-header fw-semibold bg-dark text-white d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-journal-bookmark me-2"></i>Danh sách Môn học</span>
                 <span class="badge bg-secondary">{{ subjects|length }} môn</span>
             </div>
             <div class="card-body p-0">
-                <table class="table table-hover table-striped mb-0 align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Mã môn</th><th>Tên môn học</th>
-                            <th class="text-center">TC</th><th>Khoa</th>
-                            <th class="text-center">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if subjects %}
-                            {% for s in subjects %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <td><code>{{ s.subject_code }}</code></td>
-                                <td>{{ s.subject_name }}</td>
-                                <td class="text-center">{{ s.credits }}</td>
-                                <td>
-                                    {% if s.department %}
-                                    <span class="badge bg-light text-dark border">{{ s.department.department_code }}</span>
-                                    {% else %}—{% endif %}
-                                </td>
-                                <td class="text-center">
-                                    <div class="btn-group btn-group-sm">
-                                        <button type="button" class="btn btn-outline-warning"
-                                                data-bs-toggle="modal" data-bs-target="#editSubjectModal"
-                                                data-id="{{ s.id }}" data-name="{{ s.subject_name }}"
-                                                data-credits="{{ s.credits }}" data-dept="{{ s.department_id or '' }}"
-                                                title="Sửa">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <form method="POST" action="{{ url_for('delete_subject', subject_id=s.id) }}"
-                                              onsubmit="return confirm('Xóa môn {{ s.subject_name }}?')">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button type="submit" class="btn btn-outline-danger" title="Xóa">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
+                                <th>Mã môn</th>
+                                <th>Tên môn học</th>
+                                <th class="text-center">TC</th>
+                                <th class="text-center">Tỷ lệ (QT/Thi)</th>
+                                <th>Môn tiên quyết</th>
+                                <th class="text-center">Thao tác</th>
                             </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="5" class="text-center text-muted py-4">
-                                <i class="bi bi-inbox fs-3"></i>
-                                <p class="mt-1 mb-0">Chưa có môn học nào.</p>
-                            </td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {% if subjects %}
+                                {% for s in subjects %}
+                                <tr>
+                                    <td><code>{{ s.subject_code }}</code></td>
+                                    <td>
+                                        <strong>{{ s.subject_name }}</strong>
+                                        {% if s.department %}
+                                        <br><small class="text-muted"><i class="bi bi-building me-1"></i>{{ s.department.department_name }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center"><span class="badge bg-secondary">{{ s.credits }} TC</span></td>
+                                    <td class="text-center">
+                                        <small class="fw-semibold">{{ (s.progress_weight*100)|int }}% / {{ (s.exam_weight*100)|int }}%</small>
+                                    </td>
+                                    <td>
+                                        {% if s.prerequisites %}
+                                            {% for p in s.prerequisites %}
+                                            <span class="badge bg-info text-dark me-1">{{ p.subject_code }}</span>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-warning"
+                                                    data-bs-toggle="modal" data-bs-target="#editSubjectModal"
+                                                    data-id="{{ s.id }}" data-name="{{ s.subject_name }}"
+                                                    data-credits="{{ s.credits }}" data-dept="{{ s.department_id or '' }}"
+                                                    data-pw="{{ s.progress_weight or 0.4 }}" data-ew="{{ s.exam_weight or 0.6 }}"
+                                                    title="Sửa">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <form method="POST" action="{{ url_for('delete_subject', subject_id=s.id) }}"
+                                                  onsubmit="return confirm('Xóa môn {{ s.subject_name }}?')">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-danger" title="Xóa">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>Chưa có môn học nào.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -111,21 +156,34 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Tên môn học <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Tên môn học <span class="text-danger">*</span></label>
                         <input type="text" name="subject_name" id="editSubjectName" class="form-control" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Số tín chỉ <span class="text-danger">*</span></label>
-                        <input type="number" name="credits" id="editSubjectCredits" class="form-control" min="1" max="6" required>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Số tín chỉ <span class="text-danger">*</span></label>
+                            <input type="number" name="credits" id="editSubjectCredits" class="form-control" min="1" max="6" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Khoa / Ngành</label>
+                            <select name="department_id" id="editSubjectDept" class="form-select">
+                                <option value="">— Chưa xác định —</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Khoa / Ngành</label>
-                        <select name="department_id" id="editSubjectDept" class="form-select">
-                            <option value="">— Chưa xác định —</option>
-                            {% for dept in departments %}
-                            <option value="{{ dept.id }}">{{ dept.department_name }}</option>
-                            {% endfor %}
-                        </select>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Tỷ lệ QT (0-1)</label>
+                            <input type="number" step="0.05" name="progress_weight" id="editSubjectPW" class="form-control" min="0" max="1">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-semibold">Tỷ lệ Thi (0-1)</label>
+                            <input type="number" step="0.05" name="exam_weight" id="editSubjectEW" class="form-control" min="0" max="1">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -148,6 +206,8 @@ if (editModal) {
         document.getElementById('editSubjectName').value   = btn.dataset.name;
         document.getElementById('editSubjectCredits').value = btn.dataset.credits;
         document.getElementById('editSubjectDept').value   = btn.dataset.dept;
+        document.getElementById('editSubjectPW').value     = btn.dataset.pw || '0.4';
+        document.getElementById('editSubjectEW').value     = btn.dataset.ew || '0.6';
     });
 }
 </script>

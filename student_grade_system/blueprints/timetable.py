@@ -40,14 +40,27 @@ def parse_schedule_text(schedule_text):
     elif 'chủ nhật' in text or 'chu nhat' in text or re.search(r'\bcn\b', text):
         weekday = 8
 
-    time_matches = re.findall(r'(\d{1,2}:\d{2})', schedule_text)
-
-    if len(time_matches) >= 2:
-        start_time = time_matches[0]
-        end_time = time_matches[1]
+    # Predefined shifts check: T1-3, T4-6, T7-9, T10-12
+    if 't1-3' in text or 't1–3' in text or 'tiết 1-3' in text:
+        start_time = '06:45'
+        end_time = '09:25'
+    elif 't4-6' in text or 't4–6' in text or 'tiết 4-6' in text:
+        start_time = '09:30'
+        end_time = '12:10'
+    elif 't7-9' in text or 't7–9' in text or 'tiết 7-9' in text:
+        start_time = '13:00'
+        end_time = '15:40'
+    elif 't10-12' in text or 't10–12' in text or 'tiết 10-12' in text:
+        start_time = '15:45'
+        end_time = '18:25'
     else:
-        start_time = '07:00'
-        end_time = '09:00'
+        time_matches = re.findall(r'(\d{1,2}:\d{2})', schedule_text)
+        if len(time_matches) >= 2:
+            start_time = time_matches[0]
+            end_time = time_matches[1]
+        else:
+            start_time = '07:00'
+            end_time = '09:00'
 
     return {
         'weekday': weekday,

@@ -156,6 +156,14 @@
             </li>
 
             <li>
+                <a class="{% if request.endpoint == 'grade_appeals_manager' %}active{% endif %}"
+                   href="{{ url_for('grade_appeals_manager') }}">
+                    <i class="bi bi-chat-square-text me-2"></i>
+                    <span class="sidebar-text">Phúc khảo điểm</span>
+                </a>
+            </li>
+
+            <li>
                 <a class="{% if request.endpoint == 'teacher_sections' %}active{% endif %}"
                    href="{{ url_for('teacher_sections') }}">
                     <i class="bi bi-pencil-square me-2"></i>

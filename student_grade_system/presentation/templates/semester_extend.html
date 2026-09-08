@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Gia hạn học kỳ — QLSV{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-clock-history me-2"></i>Gia hạn học kỳ
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Học kỳ:</strong> {{ semester.display_name }}<br>
+                    <strong>Ngày kết thúc hiện tại:</strong> 
+                    {% if semester.end_date %}{{ semester.end_date.strftime('%d/%m/%Y') }}{% else %}Chưa đặt{% endif %}<br>
+                    <strong>Số lần đã gia hạn:</strong> {{ semester.extension_count }}/{{ semester.max_extensions }}
+                </div>
+                
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="username" value="{{ session.get('username', 'unknown') }}">
+                    <input type="hidden" name="role" value="{{ session.get('role', 'student') }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Số ngày gia hạn <span class="text-danger">*</span></label>
+                        <input type="number" name="extension_days" class="form-control" required min="1" max="90"
+                               placeholder="Nhập số ngày muốn gia hạn (1-90)">
+                        <small class="text-muted">Tối đa 90 ngày mỗi lần gia hạn</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Lý do gia hạn</label>
+                        <textarea name="reason" class="form-control" rows="3"
+                                  placeholder="Nhập lý do gia hạn học kỳ..."></textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-warning flex-grow-1">
+                            <i class="bi bi-clock-history me-1"></i>Gia hạn
+                        </button>
+                        <a href="{{ url_for('semesters.semesters_list') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Hủy
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

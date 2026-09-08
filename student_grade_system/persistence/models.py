@@ -147,6 +147,15 @@ class SemesterModel(db.Model):
     name          = db.Column(db.String(50), nullable=False)
     academic_year = db.Column(db.String(20), nullable=False)
     is_current    = db.Column(db.Boolean, default=False)
+    start_date    = db.Column(db.Date, nullable=True)
+    end_date      = db.Column(db.Date, nullable=True)
+    original_end_date = db.Column(db.Date, nullable=True)  # Ngày kết thúc ban đầu
+    extension_count = db.Column(db.Integer, default=0)  # Số lần đã gia hạn
+    max_extensions = db.Column(db.Integer, default=3)  # Số lần gia hạn tối đa
+    status        = db.Column(db.String(20), default='active')  # active, extended, closed
+    extension_reason = db.Column(db.Text, nullable=True)  # Lý do gia hạn
+    extended_by   = db.Column(db.String(50), nullable=True)  # Người thực hiện gia hạn
+    extended_at   = db.Column(db.DateTime, nullable=True)  # Thời gian gia hạn
 
     __table_args__ = (db.UniqueConstraint('name', 'academic_year', name='uq_semester_year'),)
 
@@ -156,6 +165,28 @@ class SemesterModel(db.Model):
     @property
     def display_name(self):
         return f"{self.name} – {self.academic_year}"
+
+    @property
+    def is_expired(self):
+        """Kiểm tra xem học kỳ đã hết hạn chưa"""
+        if not self.end_date:
+            return False
+        from datetime import date
+        return date.today() > self.end_date
+
+    @property
+    def can_extend(self):
+        """Kiểm tra xem có thể gia hạn không"""
+        return self.status in ['active', 'extended'] and self.extension_count < self.max_extensions
+
+    @property
+    def days_remaining(self):
+        """Số ngày còn lại của học kỳ"""
+        if not self.end_date:
+            return None
+        from datetime import date
+        delta = self.end_date - date.today()
+        return delta.days if delta.days > 0 else 0
 
 
 class CourseSectionModel(db.Model):

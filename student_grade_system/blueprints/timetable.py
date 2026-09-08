@@ -2,7 +2,7 @@
 import re
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, redirect, url_for, session, flash, abort, request
-from persistence.models import (db, UserModel, CourseSectionModel, EnrollmentModel)
+from persistence.models import (db, UserModel, CourseSectionModel, EnrollmentModel, SemesterModel)
 from gateway import token_required, admin_required
 
 timetable_bp = Blueprint('timetable', __name__)
@@ -97,6 +97,19 @@ def build_week_days(base_date=None):
     return days
 
 
+def get_current_semester():
+    """Lấy học kỳ hiện tại"""
+    return SemesterModel.query.filter_by(is_current=True).first()
+
+
+def is_date_in_semester(check_date, semester):
+    """Kiểm tra ngày có nằm trong khoảng học kỳ không"""
+    if not semester or not semester.start_date or not semester.end_date:
+        return True  # Nếu không có học kỳ hoặc không có ngày, cho phép hiển thị
+    
+    return semester.start_date <= check_date <= semester.end_date
+
+
 def build_timetable_events(sections):
     events = []
     colors = ['primary', 'orange', 'purple', 'success', 'danger', 'info', 'secondary']
@@ -176,6 +189,17 @@ def student_timetable():
         except ValueError:
             selected_date = None
 
+    # Get current semester
+    current_semester = get_current_semester()
+    selected_date = selected_date or datetime.today().date()
+
+    # Check if selected date is within semester
+    show_events = True
+    if current_semester and current_semester.start_date and current_semester.end_date:
+        if not is_date_in_semester(selected_date, current_semester):
+            show_events = False
+            flash(f'Ngày {selected_date.strftime("%d/%m/%Y")} nằm ngoài học kỳ {current_semester.display_name} ({current_semester.start_date.strftime("%d/%m/%Y")} - {current_semester.end_date.strftime("%d/%m/%Y")}). Lịch học sẽ không hiển thị.', 'warning')
+
     user = UserModel.query.filter_by(username=session.get('username')).first()
 
     if session.get('role') == 'admin':
@@ -198,7 +222,7 @@ def student_timetable():
         page_note = 'Thời khóa biểu cá nhân của sinh viên.'
 
     week_days = build_week_days(selected_date)
-    events = build_timetable_events(sections)
+    events = build_timetable_events(sections) if show_events else []
     event_id_to_students = {}
 
     return render_template(
@@ -209,7 +233,8 @@ def student_timetable():
         week_days=week_days,
         events=events,
         event_id_to_students=event_id_to_students,
-        selected_date=selected_date or datetime.today().date()
+        selected_date=selected_date,
+        current_semester=current_semester
     )
 
 
@@ -227,6 +252,17 @@ def teacher_timetable():
             selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
             selected_date = None
+
+    # Get current semester
+    current_semester = get_current_semester()
+    selected_date = selected_date or datetime.today().date()
+
+    # Check if selected date is within semester
+    show_events = True
+    if current_semester and current_semester.start_date and current_semester.end_date:
+        if not is_date_in_semester(selected_date, current_semester):
+            show_events = False
+            flash(f'Ngày {selected_date.strftime("%d/%m/%Y")} nằm ngoài học kỳ {current_semester.display_name} ({current_semester.start_date.strftime("%d/%m/%Y")} - {current_semester.end_date.strftime("%d/%m/%Y")}). Lịch dạy sẽ không hiển thị.', 'warning')
 
     user = UserModel.query.filter_by(username=session.get('username')).first()
 
@@ -250,7 +286,7 @@ def teacher_timetable():
         page_note = 'Thời khóa biểu giảng dạy của giảng viên.'
 
     week_days = build_week_days(selected_date)
-    events = build_timetable_events(sections)
+    events = build_timetable_events(sections) if show_events else []
     event_id_to_students = build_event_students(sections)
 
     return render_template(
@@ -261,7 +297,8 @@ def teacher_timetable():
         week_days=week_days,
         events=events,
         event_id_to_students=event_id_to_students,
-        selected_date=selected_date or datetime.today().date()
+        selected_date=selected_date,
+        current_semester=current_semester
     )
 
 
@@ -278,10 +315,21 @@ def admin_timetable():
         except ValueError:
             selected_date = None
 
+    # Get current semester
+    current_semester = get_current_semester()
+    selected_date = selected_date or datetime.today().date()
+
+    # Check if selected date is within semester
+    show_events = True
+    if current_semester and current_semester.start_date and current_semester.end_date:
+        if not is_date_in_semester(selected_date, current_semester):
+            show_events = False
+            flash(f'Ngày {selected_date.strftime("%d/%m/%Y")} nằm ngoài học kỳ {current_semester.display_name} ({current_semester.start_date.strftime("%d/%m/%Y")} - {current_semester.end_date.strftime("%d/%m/%Y")}). Lịch học sẽ không hiển thị.', 'warning')
+
     sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
 
     week_days = build_week_days(selected_date)
-    events = build_timetable_events(sections)
+    events = build_timetable_events(sections) if show_events else []
     event_id_to_students = build_event_students(sections)
 
     return render_template(
@@ -292,5 +340,6 @@ def admin_timetable():
         week_days=week_days,
         events=events,
         event_id_to_students=event_id_to_students,
-        selected_date=selected_date or datetime.today().date()
+        selected_date=selected_date,
+        current_semester=current_semester
     )

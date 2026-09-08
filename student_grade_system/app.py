@@ -21,6 +21,7 @@ from blueprints.grades import grades_bp
 from blueprints.sections import sections_bp
 from blueprints.timetable import timetable_bp
 from blueprints.admin import admin_bp
+from blueprints.semesters import semesters_bp
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(base_dir, '.env'))
@@ -57,6 +58,7 @@ def create_app(config=None):
     app.register_blueprint(sections_bp)
     app.register_blueprint(timetable_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(semesters_bp)
 
     # Register Endpoint Aliases for backward compatibility with un-prefixed url_for() calls
     for rule in list(app.url_map.iter_rules()):
@@ -140,6 +142,17 @@ def _init_database(app):
             _add_column_if_missing('subjects', 'progress_weight', 'progress_weight FLOAT DEFAULT 0.4')
             _add_column_if_missing('subjects', 'exam_weight', 'exam_weight FLOAT DEFAULT 0.6')
             _add_column_if_missing('grades', 'semester_id', 'semester_id INTEGER NULL')
+            
+            # Migration for semester extension fields
+            _add_column_if_missing('semesters', 'start_date', 'start_date DATE NULL')
+            _add_column_if_missing('semesters', 'end_date', 'end_date DATE NULL')
+            _add_column_if_missing('semesters', 'original_end_date', 'original_end_date DATE NULL')
+            _add_column_if_missing('semesters', 'extension_count', 'extension_count INTEGER DEFAULT 0')
+            _add_column_if_missing('semesters', 'max_extensions', 'max_extensions INTEGER DEFAULT 3')
+            _add_column_if_missing('semesters', 'status', 'status VARCHAR(20) DEFAULT \'active\'')
+            _add_column_if_missing('semesters', 'extension_reason', 'extension_reason TEXT NULL')
+            _add_column_if_missing('semesters', 'extended_by', 'extended_by VARCHAR(50) NULL')
+            _add_column_if_missing('semesters', 'extended_at', 'extended_at DATETIME NULL')
 
             if not UserModel.query.filter_by(username='admin').first():
                 admin = UserModel(username='admin', role='admin')

@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}{% if semester %}Sửa học kỳ{% else %}Thêm học kỳ mới{% endif %} — QLSV{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-{% if semester %}pencil{% else %}plus-circle{% endif %} me-2"></i>
+                {% if semester %}Sửa học kỳ{% else %}Thêm học kỳ mới{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="username" value="{{ session.get('username', 'admin') }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tên học kỳ <span class="text-danger">*</span></label>
+                        <select name="name" class="form-select" required>
+                            <option value="Học kỳ 1" {% if semester and semester.name == 'Học kỳ 1' %}selected{% endif %}>Học kỳ 1</option>
+                            <option value="Học kỳ 2" {% if semester and semester.name == 'Học kỳ 2' %}selected{% endif %}>Học kỳ 2</option>
+                            <option value="Học kỳ 3" {% if semester and semester.name == 'Học kỳ 3' %}selected{% endif %}>Học kỳ 3</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Năm học <span class="text-danger">*</span></label>
+                        <input type="text" name="academic_year" class="form-control" required
+                               placeholder="VD: 2024-2025" pattern="\d{4}-\d{4}"
+                               value="{% if semester %}{{ semester.academic_year }}{% endif %}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Ngày bắt đầu</label>
+                        <input type="date" name="start_date" class="form-control"
+                               value="{% if semester and semester.start_date %}{{ semester.start_date.strftime('%Y-%m-%d') }}{% endif %}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Ngày kết thúc</label>
+                        <input type="date" name="end_date" class="form-control"
+                               value="{% if semester and semester.end_date %}{{ semester.end_date.strftime('%Y-%m-%d') }}{% endif %}">
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" name="is_current" id="isCurrent"
+                               {% if semester and semester.is_current %}checked{% endif %}>
+                        <label class="form-check-label" for="isCurrent">Đặt làm học kỳ hiện tại</label>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">
+                            <i class="bi bi-save me-1"></i>Lưu
+                        </button>
+                        <a href="{{ url_for('semesters.semesters_list') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Hủy
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -801,6 +801,42 @@ body.sidebar-collapsed .sidebar-toggle-btn i {
     font-weight: 700;
 }
 
+.mini-days span.calendar-day {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mini-days span.calendar-day:hover:not(.empty) {
+    background: var(--sidebar-hover);
+    color: var(--text-main);
+}
+
+.mini-days span.calendar-day.in-week {
+    background: #e9edf6;
+    color: #294b9a;
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .mini-days span.calendar-day.in-week {
+    background: #1e2335;
+    color: #ffffff;
+}
+
+.mini-days span.calendar-day.empty {
+    cursor: default;
+}
+
+.mini-calendar-header .btn-link {
+    color: #ffffff !important;
+    padding: 4px 8px;
+    text-decoration: none;
+}
+
+.mini-calendar-header .btn-link:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+}
+
 .timetable-modal .modal-header {
     background: #0d6efd;
     color: #ffffff;

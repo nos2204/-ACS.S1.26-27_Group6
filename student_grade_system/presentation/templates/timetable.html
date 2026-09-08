@@ -25,15 +25,29 @@
                         <small class="text-muted">{{ page_note }}</small>
                     </div>
 
-                    <span class="badge bg-primary">
-                        {% if timetable_type == 'student' %}
-                            Sinh viên
-                        {% elif timetable_type == 'teacher' %}
-                            Giảng viên
-                        {% else %}
-                            Admin
-                        {% endif %}
-                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">
+                            {% if timetable_type == 'student' %}
+                                Sinh viên
+                            {% elif timetable_type == 'teacher' %}
+                                Giảng viên
+                            {% else %}
+                                Admin
+                            {% endif %}
+                        </span>
+
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="prevWeekBtn">
+                                <i class="bi bi-chevron-left"></i> Tuần trước
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="todayBtn">
+                                <i class="bi bi-calendar-check"></i> Hôm nay
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="nextWeekBtn">
+                                Tuần sau <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card-body timetable-body">
@@ -244,8 +258,14 @@
         <!-- LỊCH THÁNG NHỎ -->
         <div class="col-lg-3">
             <div class="card shadow-sm mini-calendar-card">
-                <div class="mini-calendar-header">
-                    <span>{{ week_days[0].date.strftime('Tháng %m-%Y') }}</span>
+                <div class="mini-calendar-header d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-sm btn-link text-white" id="prevMonthBtn">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span id="calendarMonthLabel">{{ week_days[0].date.strftime('Tháng %m-%Y') }}</span>
+                    <button type="button" class="btn btn-sm btn-link text-white" id="nextMonthBtn">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
                 </div>
 
                 <div class="mini-calendar-body">
@@ -259,9 +279,9 @@
                         <span>CN</span>
                     </div>
 
-                    <div class="mini-days">
+                    <div class="mini-days" id="calendarDays">
                         {% for i in range(1, 32) %}
-                        <span class="{% if i == week_days[0].date.day %}active{% endif %}">
+                        <span class="calendar-day {% if i == week_days[0].date.day %}active{% endif %}" data-day="{{ i }}">
                             {{ i }}
                         </span>
                         {% endfor %}
@@ -302,6 +322,114 @@ document.addEventListener('DOMContentLoaded', function () {
         card.style.width = 'calc(' + width + '% - 8px)';
         card.style.height = height + 'px';
     });
+
+    // Date navigation functionality
+    const selectedDate = new Date('{{ selected_date.isoformat() }}');
+    let currentMonth = selectedDate.getMonth();
+    let currentYear = selectedDate.getFullYear();
+
+    function updateUrlWithDate(date) {
+        const url = new URL(window.location);
+        const dateStr = date.toISOString().split('T')[0];
+        url.searchParams.set('date', dateStr);
+        window.location.href = url.toString();
+    }
+
+    // Week navigation
+    document.getElementById('prevWeekBtn').addEventListener('click', function() {
+        const newDate = new Date(selectedDate);
+        newDate.setDate(newDate.getDate() - 7);
+        updateUrlWithDate(newDate);
+    });
+
+    document.getElementById('nextWeekBtn').addEventListener('click', function() {
+        const newDate = new Date(selectedDate);
+        newDate.setDate(newDate.getDate() + 7);
+        updateUrlWithDate(newDate);
+    });
+
+    document.getElementById('todayBtn').addEventListener('click', function() {
+        const today = new Date();
+        updateUrlWithDate(today);
+    });
+
+    // Month navigation for mini calendar
+    function renderCalendar(month, year) {
+        const calendarDays = document.getElementById('calendarDays');
+        const monthLabel = document.getElementById('calendarMonthLabel');
+
+        monthLabel.textContent = `Tháng ${String(month + 1).padStart(2, '0')}-${year}`;
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+
+        // Get the weekday of the first day (0 = Sunday, 1 = Monday, etc.)
+        let startDay = firstDay.getDay();
+        // Adjust for Monday-first week (0 = Sunday should be 6, 1 = Monday should be 0)
+        startDay = startDay === 0 ? 6 : startDay - 1;
+
+        calendarDays.innerHTML = '';
+
+        // Add empty cells for days before the first day of the month
+        for (let i = 0; i < startDay; i++) {
+            const emptyCell = document.createElement('span');
+            emptyCell.className = 'calendar-day empty';
+            calendarDays.appendChild(emptyCell);
+        }
+
+        // Add days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayCell = document.createElement('span');
+            dayCell.className = 'calendar-day';
+            dayCell.textContent = day;
+            dayCell.dataset.day = day;
+
+            // Check if this day is in the selected week
+            const cellDate = new Date(year, month, day);
+            const weekStart = new Date(selectedDate);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+
+            if (cellDate >= weekStart && cellDate <= weekEnd) {
+                dayCell.classList.add('in-week');
+            }
+
+            // Check if this is the selected date
+            if (cellDate.toDateString() === selectedDate.toDateString()) {
+                dayCell.classList.add('active');
+            }
+
+            dayCell.addEventListener('click', function() {
+                const clickedDate = new Date(year, month, day);
+                updateUrlWithDate(clickedDate);
+            });
+
+            calendarDays.appendChild(dayCell);
+        }
+    }
+
+    document.getElementById('prevMonthBtn').addEventListener('click', function() {
+        currentMonth--;
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        }
+        renderCalendar(currentMonth, currentYear);
+    });
+
+    document.getElementById('nextMonthBtn').addEventListener('click', function() {
+        currentMonth++;
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
+        renderCalendar(currentMonth, currentYear);
+    });
+
+    // Initial calendar render
+    renderCalendar(currentMonth, currentYear);
 });
 </script>
 {% endblock %}

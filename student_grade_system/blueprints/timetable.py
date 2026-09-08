@@ -1,7 +1,7 @@
 # student_grade_system/blueprints/timetable.py
 import re
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, redirect, url_for, session, flash, abort
+from flask import Blueprint, render_template, redirect, url_for, session, flash, abort, request
 from persistence.models import (db, UserModel, CourseSectionModel, EnrollmentModel)
 from gateway import token_required, admin_required
 
@@ -167,6 +167,15 @@ def student_timetable():
     if session.get('role') not in ['student', 'admin']:
         abort(403)
 
+    # Get date parameter from query string
+    date_str = request.args.get('date')
+    selected_date = None
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = None
+
     user = UserModel.query.filter_by(username=session.get('username')).first()
 
     if session.get('role') == 'admin':
@@ -188,7 +197,7 @@ def student_timetable():
         page_title = 'Lịch học'
         page_note = 'Thời khóa biểu cá nhân của sinh viên.'
 
-    week_days = build_week_days()
+    week_days = build_week_days(selected_date)
     events = build_timetable_events(sections)
     event_id_to_students = {}
 
@@ -199,7 +208,8 @@ def student_timetable():
         timetable_type='student',
         week_days=week_days,
         events=events,
-        event_id_to_students=event_id_to_students
+        event_id_to_students=event_id_to_students,
+        selected_date=selected_date or datetime.today().date()
     )
 
 
@@ -208,6 +218,15 @@ def student_timetable():
 def teacher_timetable():
     if session.get('role') not in ['teacher', 'admin']:
         abort(403)
+
+    # Get date parameter from query string
+    date_str = request.args.get('date')
+    selected_date = None
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = None
 
     user = UserModel.query.filter_by(username=session.get('username')).first()
 
@@ -230,7 +249,7 @@ def teacher_timetable():
         page_title = 'Lịch dạy'
         page_note = 'Thời khóa biểu giảng dạy của giảng viên.'
 
-    week_days = build_week_days()
+    week_days = build_week_days(selected_date)
     events = build_timetable_events(sections)
     event_id_to_students = build_event_students(sections)
 
@@ -241,7 +260,8 @@ def teacher_timetable():
         timetable_type='teacher',
         week_days=week_days,
         events=events,
-        event_id_to_students=event_id_to_students
+        event_id_to_students=event_id_to_students,
+        selected_date=selected_date or datetime.today().date()
     )
 
 
@@ -249,9 +269,18 @@ def teacher_timetable():
 @token_required
 @admin_required
 def admin_timetable():
+    # Get date parameter from query string
+    date_str = request.args.get('date')
+    selected_date = None
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = None
+
     sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
 
-    week_days = build_week_days()
+    week_days = build_week_days(selected_date)
     events = build_timetable_events(sections)
     event_id_to_students = build_event_students(sections)
 
@@ -262,5 +291,6 @@ def admin_timetable():
         timetable_type='admin',
         week_days=week_days,
         events=events,
-        event_id_to_students=event_id_to_students
+        event_id_to_students=event_id_to_students,
+        selected_date=selected_date or datetime.today().date()
     )

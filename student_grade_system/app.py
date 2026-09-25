@@ -6,6 +6,7 @@ from flask import Flask, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 from flask_migrate import Migrate
+from sqlalchemy import create_engine
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -21,6 +22,7 @@ from blueprints.sections import sections_bp
 from blueprints.timetable import timetable_bp
 from blueprints.admin import admin_bp
 from blueprints.semesters import semesters_bp
+from blueprints.teacher import teacher_bp
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(base_dir, '.env'))
@@ -58,6 +60,7 @@ def create_app(config=None):
     app.register_blueprint(timetable_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(semesters_bp)
+    app.register_blueprint(teacher_bp)
 
     # Register Endpoint Aliases for backward compatibility with un-prefixed url_for() calls
     for rule in list(app.url_map.iter_rules()):
@@ -104,12 +107,43 @@ def create_app(config=None):
     return app
 
 
+def _add_column_if_missing(table_name, column_name, column_type):
+    engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+    with engine.connect() as connection:
+        query = f"PRAGMA table_info({table_name})"
+        result = connection.execute(query)
+        columns = [row['name'] for row in result]
+        if column_name not in columns:
+            query = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+            connection.execute(query)
+
+
 def _init_database(app):
     """Khởi tạo cấu trúc bảng CSDL và tạo dữ liệu ban đầu nếu chưa có."""
     with app.app_context():
         try:
             os.makedirs(os.path.join(base_dir, 'instance'), exist_ok=True)
             db.create_all()
+
+            # Migration for semester extension fields
+            _add_column_if_missing('semesters', 'start_date', 'start_date DATE NULL')
+            _add_column_if_missing('semesters', 'end_date', 'end_date DATE NULL')
+            _add_column_if_missing('semesters', 'original_end_date', 'original_end_date DATE NULL')
+            _add_column_if_missing('semesters', 'extension_count', 'extension_count INTEGER DEFAULT 0')
+            _add_column_if_missing('semesters', 'max_extensions', 'max_extensions INTEGER DEFAULT 3')
+            _add_column_if_missing('semesters', 'status', 'status VARCHAR(20) DEFAULT \'active\'')
+            _add_column_if_missing('semesters', 'extension_reason', 'extension_reason TEXT NULL')
+            _add_column_if_missing('semesters', 'extended_by', 'extended_by VARCHAR(50) NULL')
+            _add_column_if_missing('semesters', 'extended_at', 'extended_at DATETIME NULL')
+
+            # Migration for attendance table
+            _add_column_if_missing('attendance', 'student_id', 'student_id INTEGER NULL')
+            _add_column_if_missing('attendance', 'section_id', 'section_id INTEGER NULL')
+            _add_column_if_missing('attendance', 'date', 'date DATE NULL')
+            _add_column_if_missing('attendance', 'status', 'status VARCHAR(20) DEFAULT \'present\'')
+            _add_column_if_missing('attendance', 'notes', 'notes TEXT NULL')
+            _add_column_if_missing('attendance', 'created_at', 'created_at DATETIME NULL')
+            _add_column_if_missing('attendance', 'updated_at', 'updated_at DATETIME NULL')
 
             # Seed default admin account
             if not UserModel.query.filter_by(username='admin').first():

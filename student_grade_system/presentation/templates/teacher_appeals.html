@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Phúc khảo điểm — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-chat-square-text me-2"></i>
+                Đơn phúc khảo điểm
+            </div>
+            <div class="card-body p-0">
+                {% if appeals %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Sinh viên</th>
+                                <th>Môn học</th>
+                                <th>Học kỳ</th>
+                                <th>Lý do</th>
+                                <th>Ngày gửi</th>
+                                <th>Trạng thái</th>
+                                <th>Phản hồi</th>
+                                <th class="text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for appeal in appeals %}
+                            <tr>
+                                <td>
+                                    <strong>{{ appeal.student.full_name }}</strong>
+                                    <br><small class="text-muted">{{ appeal.student.student_code }}</small>
+                                </td>
+                                <td>{{ appeal.subject.subject_name }}</td>
+                                <td>{{ appeal.semester.display_name }}</td>
+                                <td>
+                                    <small>{{ appeal.reason }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ appeal.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge
+                                        {% if appeal.status == 'pending' %}bg-warning
+                                        {% elif appeal.status == 'approved' %}bg-success
+                                        {% elif appeal.status == 'rejected' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {% if appeal.status == 'pending' %}Chờ xử lý
+                                        {% elif appeal.status == 'approved' %}Đồng ý
+                                        {% elif appeal.status == 'rejected' %}Từ chối
+                                        {% else %}{{ appeal.status }}{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if appeal.response %}
+                                    <small>{{ appeal.response }}</small>
+                                    {% else %}
+                                    <em class="text-muted">Chưa phản hồi</em>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if appeal.status == 'pending' %}
+                                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#respondModal{{ appeal.id }}">
+                                        <i class="bi bi-reply"></i> Phản hồi
+                                    </button>
+                                    {% else %}
+                                    <span class="text-muted small">Đã xử lý</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <p class="text-muted mt-3">Không có đơn phúc khảo nào.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal phản hồi -->
+{% for appeal in appeals %}
+{% if appeal.status == 'pending' %}
+<div class="modal fade" id="respondModal{{ appeal.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('teacher.teacher_respond_appeal', appeal_id=appeal.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Phản hồi đơn phúc khảo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Sinh viên</label>
+                        <input type="text" class="form-control" value="{{ appeal.student.full_name }} ({{ appeal.student.student_code }})" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Môn học</label>
+                        <input type="text" class="form-control" value="{{ appeal.subject.subject_name }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lý do phúc khảo</label>
+                        <textarea class="form-control" rows="3" disabled>{{ appeal.reason }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quyết định</label>
+                        <select name="status" class="form-select" required>
+                            <option value="approved">Đồng ý phúc khảo</option>
+                            <option value="rejected">Từ chối phúc khảo</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phản hồi</label>
+                        <textarea name="response" class="form-control" rows="3" required placeholder="Nhập lý do quyết định..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Gửi phản hồi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

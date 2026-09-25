@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Điểm danh — {{ section.section_code }} — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-calendar-check me-2"></i>
+                    Điểm danh - {{ section.section_code }}
+                </div>
+                <div>
+                    <input type="date" id="datePicker" class="form-control form-control-sm" 
+                           value="{{ selected_date.strftime('%Y-%m-%d') }}"
+                           onchange="changeDate(this.value)">
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Môn:</strong> {{ section.subject.subject_name }} ({{ section.subject.subject_code }})<br>
+                    <strong>Học kỳ:</strong> {{ section.semester.display_name }}<br>
+                    <strong>Ngày điểm danh:</strong> {{ selected_date.strftime('%d/%m/%Y') }}
+                </div>
+
+                <form method="POST" action="{{ url_for('teacher.teacher_save_attendance', section_id=section.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="date" value="{{ selected_date.strftime('%Y-%m-%d') }}">
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">STT</th>
+                                    <th>Mã SV</th>
+                                    <th>Họ tên</th>
+                                    <th style="width: 150px;">Trạng thái</th>
+                                    <th>Ghi chú</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in attendance_data %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td><code>{{ item.student.student_code }}</code></td>
+                                    <td>{{ item.student.full_name }}</td>
+                                    <td>
+                                        <select name="attendance_{{ item.student.id }}" class="form-select">
+                                            <option value="present" 
+                                                {% if not item.attendance or item.attendance.status == 'present' %}selected{% endif %}>
+                                                Có mặt
+                                            </option>
+                                            <option value="absent_excused" 
+                                                {% if item.attendance and item.attendance.status == 'absent_excused' %}selected{% endif %}>
+                                                Vắng có phép
+                                            </option>
+                                            <option value="absent_unexcused" 
+                                                {% if item.attendance and item.attendance.status == 'absent_unexcused' %}selected{% endif %}>
+                                                Vắng không phép
+                                            </option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" 
+                                               name="notes_{{ item.student.id }}" 
+                                               class="form-control form-control-sm"
+                                               placeholder="Ghi chú..."
+                                               value="{{ item.attendance.notes if item.attendance else '' }}">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Lưu điểm danh
+                        </button>
+                        <a href="{{ url_for('teacher.teacher_dashboard') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Quay lại
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function changeDate(dateStr) {
+    const url = new URL(window.location);
+    url.searchParams.set('date', dateStr);
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

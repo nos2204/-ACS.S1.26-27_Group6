@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}Nhập điểm — {{ section.section_code }} — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-pencil-square me-2"></i>
+                    Nhập điểm - {{ section.section_code }}
+                </div>
+                <div>
+                    {% if section.grades_locked %}
+                    <span class="badge bg-danger"><i class="bi bi-lock-fill"></i> Đã khóa điểm</span>
+                    {% else %}
+                    <form method="POST" action="{{ url_for('teacher.teacher_lock_grades', section_id=section.id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Bạn có chắc muốn khóa điểm lớp này? Sau khi khóa sẽ không thể sửa.')">
+                            <i class="bi bi-lock"></i> Khóa điểm
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Môn:</strong> {{ section.subject.subject_name }} ({{ section.subject.subject_code }})<br>
+                    <strong>Học kỳ:</strong> {{ section.semester.display_name }}<br>
+                    <strong>Trọng số:</strong> Quá trình {{ section.subject.progress_weight * 100 }}% | Thi {{ section.subject.exam_weight * 100 }}%
+                </div>
+
+                {% if section.grades_locked %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> Điểm của lớp học phần này đã bị khóa. Bạn không thể sửa điểm.
+                </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('teacher.teacher_save_grades', section_id=section.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" id="progressWeight" value="{{ section.subject.progress_weight }}">
+                    <input type="hidden" id="examWeight" value="{{ section.subject.exam_weight }}">
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">STT</th>
+                                    <th>Mã SV</th>
+                                    <th>Họ tên</th>
+                                    <th style="width: 120px;">Điểm quá trình</th>
+                                    <th style="width: 120px;">Điểm thi</th>
+                                    <th style="width: 100px;">Điểm tổng</th>
+                                    <th style="width: 80px;">Điểm chữ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in grades_data %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td><code>{{ item.student.student_code }}</code></td>
+                                    <td>{{ item.student.full_name }}</td>
+                                    <td>
+                                        <input type="number" 
+                                               name="progress_{{ item.student.id }}" 
+                                               class="form-control grade-input" 
+                                               min="0" max="10" step="0.1"
+                                               value="{{ item.grade.progress_grade if item.grade else 0 }}"
+                                               {% if section.grades_locked %}disabled{% endif %}
+                                               onchange="calculateFinal(this)">
+                                    </td>
+                                    <td>
+                                        <input type="number" 
+                                               name="exam_{{ item.student.id }}" 
+                                               class="form-control grade-input" 
+                                               min="0" max="10" step="0.1"
+                                               value="{{ item.grade.exam_grade if item.grade else 0 }}"
+                                               {% if section.grades_locked %}disabled{% endif %}
+                                               onchange="calculateFinal(this)">
+                                    </td>
+                                    <td>
+                                        <span class="final-grade fw-bold" id="final_{{ item.student.id }}">
+                                            {{ item.grade.final_grade if item.grade else 0 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if item.grade and item.grade.letter_grade == 'A' %}bg-success
+                                            {% elif item.grade and item.grade.letter_grade == 'B' %}bg-primary
+                                            {% elif item.grade and item.grade.letter_grade == 'C' %}bg-info
+                                            {% elif item.grade and item.grade.letter_grade == 'D' %}bg-warning
+                                            {% elif item.grade and item.grade.letter_grade == 'F' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}"
+                                            id="letter_{{ item.student.id }}">
+                                            {{ item.grade.letter_grade if item.grade else 'F' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if not section.grades_locked %}
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Lưu điểm
+                        </button>
+                        <a href="{{ url_for('teacher.teacher_dashboard') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Quay lại
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="mt-3">
+                        <a href="{{ url_for('teacher.teacher_dashboard') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Quay lại
+                        </a>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function calculateFinal(input) {
+    const progressWeight = parseFloat(document.getElementById('progressWeight').value);
+    const examWeight = parseFloat(document.getElementById('examWeight').value);
+    
+    const row = input.closest('tr');
+    const studentId = input.id.split('_')[1];
+    
+    const progressInput = row.querySelector('input[name^="progress_"]');
+    const examInput = row.querySelector('input[name^="exam_"]');
+    
+    const progressGrade = parseFloat(progressInput.value) || 0;
+    const examGrade = parseFloat(examInput.value) || 0;
+    
+    const finalGrade = (progressGrade * progressWeight + examGrade * examWeight).toFixed(2);
+    
+    document.getElementById('final_' + studentId).textContent = finalGrade;
+    
+    // Calculate letter grade
+    let letterGrade = 'F';
+    if (finalGrade >= 8.5) letterGrade = 'A';
+    else if (finalGrade >= 7.0) letterGrade = 'B';
+    else if (finalGrade >= 5.5) letterGrade = 'C';
+    else if (finalGrade >= 4.0) letterGrade = 'D';
+    
+    const letterBadge = document.getElementById('letter_' + studentId);
+    letterBadge.textContent = letterGrade;
+    
+    // Update badge color
+    letterBadge.className = 'badge';
+    if (letterGrade === 'A') letterBadge.classList.add('bg-success');
+    else if (letterGrade === 'B') letterBadge.classList.add('bg-primary');
+    else if (letterGrade === 'C') letterBadge.classList.add('bg-info');
+    else if (letterGrade === 'D') letterBadge.classList.add('bg-warning');
+    else letterBadge.classList.add('bg-danger');
+}
+
+// Calculate on page load
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.grade-input').forEach(function(input) {
+        calculateFinal(input);
+    });
+});
+</script>
+{% endblock %}

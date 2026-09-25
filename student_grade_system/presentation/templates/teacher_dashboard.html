@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Giảng viên — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-person-workspace me-2"></i>
+                    Dashboard Giảng viên
+                </div>
+                <span class="badge bg-primary">{{ sections|length }} lớp học phần</span>
+            </div>
+            <div class="card-body p-0">
+                {% if sections %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Mã lớp HP</th>
+                                <th>Môn học</th>
+                                <th>Học kỳ</th>
+                                <th>Phòng</th>
+                                <th>Lịch học</th>
+                                <th>Sĩ số</th>
+                                <th>Trạng thái</th>
+                                <th class="text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for section in sections %}
+                            <tr>
+                                <td><code>{{ section.section_code }}</code></td>
+                                <td>
+                                    <strong>{{ section.subject.subject_name }}</strong>
+                                    <br><small class="text-muted">{{ section.subject.subject_code }}</small>
+                                </td>
+                                <td>{{ section.semester.display_name }}</td>
+                                <td>{{ section.room or '—' }}</td>
+                                <td>
+                                    <small>{{ section.schedule or '—' }}</small>
+                                </td>
+                                <td>
+                                    {{ section.current_students }}/{{ section.max_students }}
+                                    {% if section.is_full %}
+                                    <span class="badge bg-danger ms-1">Đầy</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge
+                                        {% if section.status == 'open' %}bg-success
+                                        {% elif section.status == 'closed' %}bg-secondary
+                                        {% elif section.status == 'studying' %}bg-primary
+                                        {% elif section.status == 'finished' %}bg-warning
+                                        {% else %}bg-secondary{% endif %}">
+                                        {% if section.grades_locked %}
+                                            <i class="bi bi-lock-fill"></i> Khóa điểm
+                                        {% else %}
+                                            {{ section.status }}
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('teacher.teacher_section_grades', section_id=section.id) }}" 
+                                           class="btn btn-outline-primary" title="Nhập điểm">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+                                        <a href="{{ url_for('teacher.teacher_attendance', section_id=section.id) }}" 
+                                           class="btn btn-outline-success" title="Điểm danh">
+                                            <i class="bi bi-calendar-check"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <p class="text-muted mt-3">Bạn chưa được phân công lớp học phần nào trong học kỳ hiện tại.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

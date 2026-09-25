@@ -291,6 +291,23 @@ class GradeAppealModel(db.Model):
     semester = db.relationship('SemesterModel', backref='grade_appeals')
 
 
+class AttendanceModel(db.Model):
+    __tablename__ = 'attendance'
+    id            = db.Column(db.Integer, primary_key=True)
+    student_id    = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
+    section_id    = db.Column(db.Integer, db.ForeignKey('course_sections.id'), nullable=False, index=True)
+    date          = db.Column(db.Date, nullable=False, index=True)
+    status        = db.Column(db.String(20), default='present', index=True)  # present / absent_excused / absent_unexcused
+    notes         = db.Column(db.Text, nullable=True)
+    created_at    = db.Column(db.DateTime, default=utc_now)
+    updated_at    = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    student = db.relationship('StudentModel', backref='attendance_records')
+    section = db.relationship('CourseSectionModel', backref='attendance_records')
+
+    __table_args__ = (db.UniqueConstraint('student_id', 'section_id', 'date', name='uq_student_section_date'),)
+
+
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
     id          = db.Column(db.Integer, primary_key=True)

@@ -197,10 +197,34 @@
 
             {% if session.get('role') == 'teacher' %}
             <li>
-                <a class="{% if request.endpoint == 'teacher_sections' %}active{% endif %}"
-                   href="{{ url_for('teacher_sections') }}">
-                    <i class="bi bi-easel2 me-2"></i>
-                    <span class="sidebar-text">Lớp tôi dạy</span>
+                <a class="{% if request.endpoint == 'teacher.teacher_dashboard' %}active{% endif %}"
+                   href="{{ url_for('teacher.teacher_dashboard') }}">
+                    <i class="bi bi-speedometer2 me-2"></i>
+                    <span class="sidebar-text">Dashboard</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{% if request.endpoint == 'teacher.teacher_section_grades' %}active{% endif %}"
+                   href="{{ url_for('teacher.teacher_dashboard') }}">
+                    <i class="bi bi-pencil-square me-2"></i>
+                    <span class="sidebar-text">Nhập điểm</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{% if request.endpoint == 'teacher.teacher_attendance' %}active{% endif %}"
+                   href="{{ url_for('teacher.teacher_dashboard') }}">
+                    <i class="bi bi-calendar-check me-2"></i>
+                    <span class="sidebar-text">Điểm danh</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{% if request.endpoint == 'teacher.teacher_appeals' %}active{% endif %}"
+                   href="{{ url_for('teacher.teacher_appeals') }}">
+                    <i class="bi bi-chat-square-text me-2"></i>
+                    <span class="sidebar-text">Phúc khảo</span>
                 </a>
             </li>
 

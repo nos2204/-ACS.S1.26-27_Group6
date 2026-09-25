@@ -159,3 +159,88 @@ def import_students():
         return redirect(url_for('students_manager'))
 
     return render_template('import_students.html')
+
+
+@students_bp.route('/student/degree-progress', endpoint='student_degree_progress')
+@token_required
+def student_degree_progress():
+    """Degree Progress Tracker - Theo dõi tiến độ học tập"""
+    if session.get('role') != 'student':
+        flash('Bạn không có quyền truy cập trang này!', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    from persistence.models import UserModel
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    
+    if not user or not user.student_id:
+        flash('Tài khoản sinh viên chưa được liên kết!', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    student = StudentModel.query.get_or_404(user.student_id)
+    
+    # Lấy tất cả điểm của sinh viên
+    all_grades = GradeModel.query.filter_by(student_id=student.id).all()
+    
+    # Xử lý quy chế học lại: lấy điểm cao nhất cho mỗi môn
+    subject_best_grades = {}
+    for grade in all_grades:
+        if grade.subject_id not in subject_best_grades:
+            subject_best_grades[grade.subject_id] = grade
+        else:
+            # So sánh điểm tổng, lấy điểm cao nhất
+            if grade.final_grade > subject_best_grades[grade.subject_id].final_grade:
+                subject_best_grades[grade.subject_id] = grade
+    
+    best_grades = list(subject_best_grades.values())
+    
+    # Phân loại theo khối kiến thức
+    categories = {
+        'general': {'name': 'Đại cương', 'credits_earned': 0, 'credits_required': 30, 'subjects': []},
+        'foundation': {'name': 'Cơ sở ngành', 'credits_earned': 0, 'credits_required': 45, 'subjects': []},
+        'major': {'name': 'Chuyên ngành', 'credits_earned': 0, 'credits_required': 60, 'subjects': []}
+    }
+    
+    total_credits_earned = 0
+    total_credits_required = 135  # Tổng số tín chỉ yêu cầu
+    failed_subjects = []
+    
+    for grade in best_grades:
+        subject = grade.subject
+        category_key = subject.category if subject.category in categories else 'general'
+        
+        if grade.is_passed:
+            categories[category_key]['credits_earned'] += subject.credits
+            categories[category_key]['subjects'].append({
+                'subject': subject,
+                'grade': grade,
+                'status': 'passed'
+            })
+            total_credits_earned += subject.credits
+        else:
+            categories[category_key]['subjects'].append({
+                'subject': subject,
+                'grade': grade,
+                'status': 'failed'
+            })
+            failed_subjects.append(subject)
+    
+    # Tính GPA (chỉ tính môn đã qua)
+    total_grade_points = sum(g.grade_point_4 * g.subject.credits for g in best_grades if g.is_passed)
+    total_credits_for_gpa = sum(g.subject.credits for g in best_grades if g.is_passed)
+    gpa = round(total_grade_points / total_credits_for_gpa, 2) if total_credits_for_gpa > 0 else 0.0
+    
+    # Dự báo tốt nghiệp
+    can_graduate = (
+        total_credits_earned >= total_credits_required and
+        gpa >= 2.0 and
+        len(failed_subjects) == 0
+    )
+    
+    return render_template('student_degree_progress.html',
+                         student=student,
+                         categories=categories,
+                         total_credits_earned=total_credits_earned,
+                         total_credits_required=total_credits_required,
+                         gpa=gpa,
+                         failed_subjects=failed_subjects,
+                         can_graduate=can_graduate)

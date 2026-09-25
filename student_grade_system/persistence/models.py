@@ -129,6 +129,7 @@ class SubjectModel(db.Model):
     department_id   = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True, index=True)
     progress_weight = db.Column(db.Float, default=0.4)
     exam_weight     = db.Column(db.Float, default=0.6)
+    category        = db.Column(db.String(50), default='general', index=True)  # general, foundation, major
 
     grades = db.relationship('GradeModel', backref='subject', cascade='all, delete-orphan', lazy=True)
     sections = db.relationship('CourseSectionModel', backref='subject', lazy=True)
@@ -140,6 +141,15 @@ class SubjectModel(db.Model):
         secondaryjoin=(id == subject_prerequisites.c.prerequisite_id),
         backref='prerequisite_for'
     )
+
+    @property
+    def category_display(self):
+        categories = {
+            'general': 'Đại cương',
+            'foundation': 'Cơ sở ngành',
+            'major': 'Chuyên ngành'
+        }
+        return categories.get(self.category, self.category)
 
 
 class SemesterModel(db.Model):
@@ -236,6 +246,7 @@ class GradeModel(db.Model):
     semester_id    = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=False, index=True)
     progress_grade = db.Column(db.Float, default=0.0)
     exam_grade     = db.Column(db.Float, default=0.0)
+    is_retake      = db.Column(db.Boolean, default=False, index=True)  # Đánh dấu môn học lại
     updated_at     = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
     __table_args__ = (db.UniqueConstraint('student_id', 'subject_id', 'semester_id', name='uq_student_subject_semester'),)

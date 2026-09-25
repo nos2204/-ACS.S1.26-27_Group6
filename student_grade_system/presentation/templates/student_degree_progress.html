@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}Tiến độ học tập — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <!-- Tổng quan -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-graph-up me-2"></i>
+                Tổng quan tiến độ học tập
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-3">
+                        <div class="text-center p-3 border rounded">
+                            <h3 class="mb-1">{{ total_credits_earned }}/{{ total_credits_required }}</h3>
+                            <small class="text-muted">Tín chỉ đã đạt</small>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-primary" 
+                                     style="width: {{ (total_credits_earned / total_credits_required * 100) if total_credits_required > 0 else 0 }}%">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 border rounded">
+                            <h3 class="mb-1">{{ gpa }}</h3>
+                            <small class="text-muted">GPA tích lũy</small>
+                            <div class="mt-2">
+                                {% if gpa >= 3.6 %}
+                                <span class="badge bg-success">Xuất sắc</span>
+                                {% elif gpa >= 3.2 %}
+                                <span class="badge bg-primary">Giỏi</span>
+                                {% elif gpa >= 2.5 %}
+                                <span class="badge bg-info">Khá</span>
+                                {% elif gpa >= 2.0 %}
+                                <span class="badge bg-warning">Trung bình</span>
+                                {% else %}
+                                <span class="badge bg-danger">Yếu</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 border rounded">
+                            <h3 class="mb-1">{{ failed_subjects|length }}</h3>
+                            <small class="text-muted">Môn nợ</small>
+                            <div class="mt-2">
+                                {% if failed_subjects|length == 0 %}
+                                <span class="badge bg-success">Không có môn nợ</span>
+                                {% else %}
+                                <span class="badge bg-danger">Cần học lại</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 border rounded {% if can_graduate %}bg-success bg-opacity-10{% else %}bg-danger bg-opacity-10{% endif %}">
+                            <h3 class="mb-1">
+                                {% if can_graduate %}
+                                <i class="bi bi-check-circle-fill text-success"></i> Có thể tốt nghiệp
+                                {% else %}
+                                <i class="bi bi-x-circle-fill text-danger"></i> Chưa đủ điều kiện
+                                {% endif %}
+                            </h3>
+                            <small class="text-muted">Dự báo tốt nghiệp</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tiến độ theo khối kiến thức -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-layers me-2"></i>
+                Tiến độ theo khối kiến thức
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    {% for key, category in categories.items() %}
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between">
+                                <strong>{{ category.name }}</strong>
+                                <small>{{ category.credits_earned }}/{{ category.credits_required }} TC</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="progress mb-2" style="height: 20px;">
+                                    <div class="progress-bar 
+                                        {% if (category.credits_earned / category.credits_required * 100) >= 100 %}bg-success
+                                        {% elif (category.credits_earned / category.credits_required * 100) >= 50 %}bg-primary
+                                        {% else %}bg-warning{% endif %}" 
+                                         style="width: {{ (category.credits_earned / category.credits_required * 100) if category.credits_required > 0 else 0 }}%">
+                                        {{ "%.1f"|format((category.credits_earned / category.credits_required * 100) if category.credits_required > 0 else 0) }}%
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {% if category.credits_earned >= category.credits_required %}
+                                    <i class="bi bi-check-circle-fill text-success"></i> Đã hoàn thành
+                                    {% else %}
+                                    Còn thiếu {{ category.credits_required - category.credits_earned }} tín chỉ
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chi tiết môn học -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-book me-2"></i>
+                Chi tiết môn học
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Mã môn</th>
+                                <th>Tên môn</th>
+                                <th>Khối kiến thức</th>
+                                <th>Số TC</th>
+                                <th>Điểm tổng</th>
+                                <th>Điểm chữ</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, category in categories.items() %}
+                            {% for item in category.subjects %}
+                            <tr>
+                                <td><code>{{ item.subject.subject_code }}</code></td>
+                                <td>{{ item.subject.subject_name }}</td>
+                                <td>{{ item.subject.category_display }}</td>
+                                <td>{{ item.subject.credits }}</td>
+                                <td>
+                                    <strong>{{ item.grade.final_grade }}</strong>
+                                    {% if item.grade.is_retake %}
+                                    <span class="badge bg-warning ms-1">Học lại</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge 
+                                        {% if item.grade.letter_grade == 'A' %}bg-success
+                                        {% elif item.grade.letter_grade == 'B' %}bg-primary
+                                        {% elif item.grade.letter_grade == 'C' %}bg-info
+                                        {% elif item.grade.letter_grade == 'D' %}bg-warning
+                                        {% else %}bg-danger{% endif %}">
+                                        {{ item.grade.letter_grade }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if item.status == 'passed' %}
+                                    <span class="badge bg-success"><i class="bi bi-check"></i> Đạt</span>
+                                    {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-x"></i> Nợ</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Môn nợ -->
+    {% if failed_subjects %}
+    <div class="col-12">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header fw-semibold text-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Môn cần học lại ({{ failed_subjects|length }})
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for subject in failed_subjects %}
+                    <div class="col-md-4 mb-3">
+                        <div class="alert alert-warning mb-0">
+                            <strong>{{ subject.subject_code }}</strong><br>
+                            {{ subject.subject_name }}<br>
+                            <small>{{ subject.credits }} tín chỉ</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

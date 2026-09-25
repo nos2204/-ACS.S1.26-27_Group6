@@ -239,10 +239,18 @@
 
             {% if session.get('role') == 'student' %}
             <li>
-                <a class="{% if request.endpoint == 'enrollments_page' %}active{% endif %}"
-                   href="{{ url_for('enrollments_page') }}">
-                    <i class="bi bi-journal-plus me-2"></i>
-                    <span class="sidebar-text">Đăng ký HP</span>
+                <a class="{% if request.endpoint == 'students.student_degree_progress' %}active{% endif %}"
+                   href="{{ url_for('students.student_degree_progress') }}">
+                    <i class="bi bi-graph-up me-2"></i>
+                    <span class="sidebar-text">Tiến độ học tập</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{% if request.endpoint == 'sections.enrollments_page' %}active{% endif %}"
+                   href="{{ url_for('sections.enrollments_page') }}">
+                    <i class="bi bi-easel2 me-2"></i>
+                    <span class="sidebar-text">Lớp tôi học</span>
                 </a>
             </li>
 
@@ -253,6 +261,7 @@
                     <span class="sidebar-text">TKB sinh viên</span>
                 </a>
             </li>
+            {% endif %}
 
             <li>
                 <a class="{% if request.endpoint == 'my_profile' %}active{% endif %}"
@@ -261,7 +270,6 @@
                     <span class="sidebar-text">Hồ sơ của tôi</span>
                 </a>
             </li>
-            {% endif %}
 
             <li class="sidebar-dropdown">
                 <button type="button" class="sidebar-dropdown-btn">

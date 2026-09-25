@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 db = SQLAlchemy()
 
+
 def utc_now():
     return datetime.now(timezone.utc)
 
@@ -14,7 +15,7 @@ class UserModel(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     username      = db.Column(db.String(50), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role          = db.Column(db.String(20), nullable=False, default='student')  # admin / teacher / student
+    role          = db.Column(db.String(20), nullable=False, default='student', index=True)  # admin / teacher / student
     student_id    = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=True, index=True)
     teacher_id    = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True, index=True)
     created_at    = db.Column(db.DateTime, default=utc_now)
@@ -81,13 +82,13 @@ class StudentModel(db.Model):
     gender          = db.Column(db.String(10))
     email           = db.Column(db.String(120), nullable=True)
     phone           = db.Column(db.String(20), nullable=True)
-    class_name      = db.Column(db.String(50), nullable=True)  # dữ liệu cũ, vẫn giữ để không mất dữ liệu
+    class_name      = db.Column(db.String(50), nullable=True)
     class_id        = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True, index=True)
     date_of_birth   = db.Column(db.Date, nullable=True)
     address         = db.Column(db.String(255), nullable=True)
     department_id   = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True, index=True)
     gpa             = db.Column(db.Float, default=0.0, index=True)
-    academic_rank   = db.Column(db.String(20), default='Yếu')
+    academic_rank   = db.Column(db.String(20), default='Yếu', index=True)
     created_at      = db.Column(db.DateTime, default=utc_now)
 
     grades = db.relationship('GradeModel', backref='student', cascade='all, delete-orphan', lazy=True)
@@ -146,16 +147,16 @@ class SemesterModel(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     name          = db.Column(db.String(50), nullable=False)
     academic_year = db.Column(db.String(20), nullable=False)
-    is_current    = db.Column(db.Boolean, default=False)
+    is_current    = db.Column(db.Boolean, default=False, index=True)
     start_date    = db.Column(db.Date, nullable=True)
     end_date      = db.Column(db.Date, nullable=True)
-    original_end_date = db.Column(db.Date, nullable=True)  # Ngày kết thúc ban đầu
-    extension_count = db.Column(db.Integer, default=0)  # Số lần đã gia hạn
-    max_extensions = db.Column(db.Integer, default=3)  # Số lần gia hạn tối đa
-    status        = db.Column(db.String(20), default='active')  # active, extended, closed
-    extension_reason = db.Column(db.Text, nullable=True)  # Lý do gia hạn
-    extended_by   = db.Column(db.String(50), nullable=True)  # Người thực hiện gia hạn
-    extended_at   = db.Column(db.DateTime, nullable=True)  # Thời gian gia hạn
+    original_end_date = db.Column(db.Date, nullable=True)
+    extension_count = db.Column(db.Integer, default=0)
+    max_extensions = db.Column(db.Integer, default=3)
+    status        = db.Column(db.String(20), default='active', index=True)  # active, extended, closed
+    extension_reason = db.Column(db.Text, nullable=True)
+    extended_by   = db.Column(db.String(50), nullable=True)
+    extended_at   = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (db.UniqueConstraint('name', 'academic_year', name='uq_semester_year'),)
 
@@ -199,7 +200,7 @@ class CourseSectionModel(db.Model):
     max_students  = db.Column(db.Integer, default=50)
     room          = db.Column(db.String(50), nullable=True)
     schedule      = db.Column(db.String(120), nullable=True)
-    status        = db.Column(db.String(30), default='open')  # open / closed / studying / finished / locked
+    status        = db.Column(db.String(30), default='open', index=True)  # open / closed / studying / finished / locked
     grades_locked = db.Column(db.Boolean, default=False)
     created_at    = db.Column(db.DateTime, default=utc_now)
 
@@ -219,7 +220,7 @@ class EnrollmentModel(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     student_id    = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
     section_id    = db.Column(db.Integer, db.ForeignKey('course_sections.id'), nullable=False, index=True)
-    status        = db.Column(db.String(20), default='registered')
+    status        = db.Column(db.String(20), default='registered', index=True)
     registered_at = db.Column(db.DateTime, default=utc_now)
 
     student = db.relationship('StudentModel', backref='enrollments')
@@ -280,7 +281,7 @@ class GradeAppealModel(db.Model):
     subject_id    = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False, index=True)
     semester_id   = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=False, index=True)
     reason        = db.Column(db.Text, nullable=False)
-    status        = db.Column(db.String(20), default='pending')  # pending / approved / rejected
+    status        = db.Column(db.String(20), default='pending', index=True)  # pending / approved / rejected
     response      = db.Column(db.Text, nullable=True)
     created_at    = db.Column(db.DateTime, default=utc_now)
     updated_at    = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
@@ -293,10 +294,8 @@ class GradeAppealModel(db.Model):
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
     id          = db.Column(db.Integer, primary_key=True)
-    actor       = db.Column(db.String(50), nullable=False)
-    action      = db.Column(db.String(50), nullable=False)
+    actor       = db.Column(db.String(50), nullable=False, index=True)
+    action      = db.Column(db.String(50), nullable=False, index=True)
     target      = db.Column(db.String(200), nullable=True)
     detail      = db.Column(db.Text, nullable=True)
-    created_at  = db.Column(db.DateTime, default=utc_now)
-
-
+    created_at  = db.Column(db.DateTime, default=utc_now, index=True)

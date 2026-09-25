@@ -1,7 +1,8 @@
 # student_grade_system/blueprints/grades.py
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, Response
 from persistence.models import (db, StudentModel, GradeModel, SubjectModel, SemesterModel)
-from business.student_service import StudentService
+from business.grade_service import GradeService
+from business.report_service import ReportService
 from gateway import token_required, admin_required, admin_or_self_required
 
 grades_bp = Blueprint('grades', __name__)
@@ -41,7 +42,7 @@ def manage_grades(student_id):
                     pg = float(request.form[pg_key])
                     eg = float(request.form[eg_key])
                     if 0 <= pg <= 10 and 0 <= eg <= 10:
-                        StudentService.upsert_grade(
+                        GradeService.upsert_grade(
                             student_id, subject.id, sel_sem_id,
                             pg, eg, actor=session['username']
                         )
@@ -51,11 +52,11 @@ def manage_grades(student_id):
         return redirect(url_for('manage_grades', student_id=student_id,
                                 semester_id=sel_sem_id))
 
-    sem_gpa     = StudentService.calculate_student_gpa(student_id, sel_sem_id) if sel_sem_id else 0
-    sem_avg10   = StudentService.calculate_student_avg10(student_id, sel_sem_id) if sel_sem_id else 0
-    total_avg10 = StudentService.calculate_student_avg10(student_id)
+    sem_gpa     = GradeService.calculate_student_gpa(student_id, sel_sem_id) if sel_sem_id else 0
+    sem_avg10   = GradeService.calculate_student_avg10(student_id, sel_sem_id) if sel_sem_id else 0
+    total_avg10 = GradeService.calculate_student_avg10(student_id)
     student     = StudentModel.query.get(student_id)
-    warnings    = StudentService.get_student_warnings(student_id, sel_sem_id)
+    warnings    = GradeService.get_student_warnings(student_id, sel_sem_id)
     return render_template('grades.html',
                            student=student, subjects=subjects,
                            grades=grades, semesters=semesters,
@@ -80,7 +81,7 @@ def import_grades():
             flash('Vui lòng chọn file CSV và học kỳ.', 'danger')
             return redirect(url_for('import_grades'))
 
-        updated, errors = StudentService.import_grades_from_csv(
+        updated, errors = ReportService.import_grades_from_csv(
             f.stream, semester_id=sid, actor=session['username']
         )
         flash(f'Import điểm hoàn tất: cập nhật {updated} bản ghi.', 'success')
@@ -97,7 +98,7 @@ def import_grades():
 def export_transcript_pdf(student_id):
     sem_id = request.args.get('semester_id', type=int)
     try:
-        pdf_bytes = StudentService.export_transcript_pdf(student_id, sem_id)
+        pdf_bytes = ReportService.export_transcript_pdf(student_id, sem_id)
     except RuntimeError as e:
         flash(str(e), 'danger')
         return redirect(url_for('manage_grades', student_id=student_id))
@@ -128,6 +129,6 @@ def submit_grade_appeal():
         flash('Vui lòng điền đầy đủ lý do phúc khảo!', 'danger')
         return redirect(url_for('manage_grades', student_id=user.student_id))
 
-    ok, msg = StudentService.create_grade_appeal(user.student_id, subject_id, semester_id, reason)
+    ok, msg = GradeService.create_grade_appeal(user.student_id, subject_id, semester_id, reason)
     flash(msg, 'success' if ok else 'warning')
     return redirect(url_for('manage_grades', student_id=user.student_id, semester_id=semester_id))

@@ -3,7 +3,7 @@ import tempfile
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, send_file
 from persistence.models import (db, SubjectModel, SemesterModel, DepartmentModel,
                                  ClassModel, TeacherModel, UserModel, GradeModel, AuditLog, StudentModel)
-from business.student_service import StudentService
+from business.report_service import ReportService
 from gateway import token_required, admin_required
 
 admin_bp = Blueprint('admin', __name__)
@@ -383,7 +383,7 @@ def export_excel():
     sem_id = request.args.get('semester_id', type=int)
     temp = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
     temp.close()
-    StudentService.export_students_to_excel(temp.name, semester_id=sem_id)
+    ReportService.export_students_to_excel(temp.name, semester_id=sem_id)
     return send_file(temp.name, as_attachment=True, download_name='baocao_sinhvien.xlsx')
 
 

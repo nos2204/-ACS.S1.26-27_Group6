@@ -2,7 +2,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, abort
 from persistence.models import (db, CourseSectionModel, SubjectModel, SemesterModel,
                                  TeacherModel, UserModel, EnrollmentModel, GradeModel)
-from business.student_service import StudentService
+from business.enrollment_service import EnrollmentService
+from business.grade_service import GradeService
 from gateway import token_required, admin_required, admin_or_teacher_required
 
 sections_bp = Blueprint('sections', __name__)
@@ -38,23 +39,53 @@ def add_course_section():
     if custom:
         schedule_str = custom
     elif day and shift:
-        schedule_str = f"{day} - {shift}"
-    elif day:
-        schedule_str = day
+        schedule_str = f"{day} ({shift})"
     else:
-        schedule_str = request.form.get('schedule', '').strip() or None
+        schedule_str = None
 
-    section = CourseSectionModel(section_code=code,
-                                 subject_id=request.form.get('subject_id'),
-                                 semester_id=request.form.get('semester_id'),
-                                 teacher_id=request.form.get('teacher_id') or None,
-                                 max_students=request.form.get('max_students', type=int) or 50,
-                                 room=request.form.get('room', '').strip() or None,
-                                 schedule=schedule_str,
-                                 status=request.form.get('status', 'open'))
-    db.session.add(section)
+    teacher_id = request.form.get('teacher_id', type=int) or None
+    sec = CourseSectionModel(
+        section_code=code,
+        subject_id=request.form.get('subject_id', type=int),
+        semester_id=request.form.get('semester_id', type=int),
+        teacher_id=teacher_id,
+        max_students=request.form.get('max_students', 50, type=int),
+        room=request.form.get('room', '').strip() or None,
+        schedule=schedule_str,
+        status=request.form.get('status', 'open')
+    )
+    db.session.add(sec)
     db.session.commit()
-    flash('Đã thêm lớp học phần!', 'success')
+    flash(f'Đã tạo lớp học phần "{code}"!', 'success')
+    return redirect(url_for('course_sections_manager'))
+
+
+@sections_bp.route('/course-sections/<int:section_id>/edit', methods=['POST'], endpoint='edit_course_section')
+@token_required
+@admin_required
+def edit_course_section(section_id):
+    sec = CourseSectionModel.query.get_or_404(section_id)
+    sec.subject_id = request.form.get('subject_id', type=int)
+    sec.semester_id = request.form.get('semester_id', type=int)
+    sec.teacher_id = request.form.get('teacher_id', type=int) or None
+    sec.max_students = request.form.get('max_students', 50, type=int)
+    sec.room = request.form.get('room', '').strip() or None
+    
+    day = request.form.get('schedule_day', '').strip()
+    shift = request.form.get('schedule_shift', '').strip()
+    custom = request.form.get('schedule_custom', '').strip()
+
+    if custom:
+        sec.schedule = custom
+    elif day and shift:
+        sec.schedule = f"{day} ({shift})"
+    else:
+        sec.schedule = None
+
+    sec.status = request.form.get('status', 'open')
+    sec.grades_locked = bool(request.form.get('grades_locked'))
+    db.session.commit()
+    flash(f'Đã cập nhật lớp học phần "{sec.section_code}"!', 'success')
     return redirect(url_for('course_sections_manager'))
 
 
@@ -62,26 +93,11 @@ def add_course_section():
 @token_required
 @admin_required
 def delete_course_section(section_id):
-    section = CourseSectionModel.query.get_or_404(section_id)
-    if section.enrollments:
-        flash('Không thể xóa lớp học phần đã có sinh viên đăng ký!', 'danger')
-        return redirect(url_for('course_sections_manager'))
-    db.session.delete(section)
+    sec = CourseSectionModel.query.get_or_404(section_id)
+    code = sec.section_code
+    db.session.delete(sec)
     db.session.commit()
-    flash('Đã xóa lớp học phần!', 'success')
-    return redirect(url_for('course_sections_manager'))
-
-
-@sections_bp.route('/course-sections/<int:section_id>/toggle_lock', methods=['POST'], endpoint='toggle_section_lock')
-@token_required
-@admin_required
-def toggle_section_lock(section_id):
-    section = CourseSectionModel.query.get_or_404(section_id)
-    section.grades_locked = not section.grades_locked
-    if section.grades_locked:
-        section.status = 'locked'
-    db.session.commit()
-    flash('Đã cập nhật trạng thái khóa điểm!', 'success')
+    flash(f'Đã xóa lớp học phần "{code}"!', 'success')
     return redirect(url_for('course_sections_manager'))
 
 
@@ -90,6 +106,7 @@ def toggle_section_lock(section_id):
 def enrollments_page():
     sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
     user = UserModel.query.filter_by(username=session.get('username')).first()
+
     my_enrollments = []
     registered_section_ids = set()
     conflicting_section_ids = set()
@@ -100,7 +117,7 @@ def enrollments_page():
 
         for s in sections:
             if s.id not in registered_section_ids:
-                is_conflict, _ = StudentService.check_schedule_conflict(user.student_id, s)
+                is_conflict, _ = EnrollmentService.check_schedule_conflict(user.student_id, s)
                 if is_conflict:
                     conflicting_section_ids.add(s.id)
 
@@ -140,6 +157,7 @@ def register_section(section_id):
     if not user or not user.student_id:
         flash('Tài khoản chưa liên kết sinh viên!', 'danger')
         return redirect(url_for('enrollments_page'))
+
     section = CourseSectionModel.query.get_or_404(section_id)
     if section.status != 'open':
         flash('Lớp học phần này chưa mở đăng ký hoặc đã đóng!', 'danger')
@@ -150,14 +168,14 @@ def register_section(section_id):
 
     # 1. Kiểm tra môn học tiên quyết
     if section.subject:
-        prereqs_met, missing_prereqs = StudentService.check_prerequisites_met(user.student_id, section.subject)
+        prereqs_met, missing_prereqs = EnrollmentService.check_prerequisites_met(user.student_id, section.subject)
         if not prereqs_met:
             missing_str = ', '.join(missing_prereqs)
             flash(f'Không thể đăng ký: Chưa hoàn thành môn tiên quyết ({missing_str})!', 'danger')
             return redirect(url_for('enrollments_page'))
 
     # 2. Kiểm tra trùng lịch học
-    is_conflict, conflict_msg = StudentService.check_schedule_conflict(user.student_id, section)
+    is_conflict, conflict_msg = EnrollmentService.check_schedule_conflict(user.student_id, section)
     if is_conflict:
         flash(f'Không thể đăng ký: {conflict_msg}!', 'danger')
         return redirect(url_for('enrollments_page'))
@@ -229,7 +247,7 @@ def section_grades(section_id):
             if not (0 <= pg <= 10 and 0 <= eg <= 10):
                 flash('Điểm phải nằm trong khoảng 0 đến 10!', 'danger')
                 return redirect(url_for('section_grades', section_id=section_id))
-            StudentService.upsert_grade(e.student_id, section.subject_id, section.semester_id, pg, eg, actor=session.get('username', 'teacher'))
+            GradeService.upsert_grade(e.student_id, section.subject_id, section.semester_id, pg, eg, actor=session.get('username', 'teacher'))
         flash('Đã lưu điểm lớp học phần!', 'success')
         return redirect(url_for('section_grades', section_id=section_id))
     grade_map = {}

@@ -1,7 +1,8 @@
 # student_grade_system/blueprints/main.py
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from persistence.models import db, StudentModel, SemesterModel
-from business.student_service import StudentService
+from business.analytics_service import AnalyticsService
+from business.grade_service import GradeService
 from gateway import token_required
 
 main_bp = Blueprint('main', __name__)
@@ -10,7 +11,7 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/', endpoint='dashboard')
 @token_required
 def dashboard():
-    stats = StudentService.get_dashboard_stats()
+    stats = AnalyticsService.get_dashboard_stats()
     return render_template('dashboard.html', **stats)
 
 
@@ -45,6 +46,6 @@ def my_profile():
         return redirect(url_for('my_profile'))
 
     semesters = SemesterModel.query.order_by(SemesterModel.academic_year.desc()).all()
-    warnings    = StudentService.get_student_warnings(student.id)
-    total_avg10 = StudentService.calculate_student_avg10(student.id)
+    warnings    = GradeService.get_student_warnings(student.id)
+    total_avg10 = GradeService.calculate_student_avg10(student.id)
     return render_template('profile.html', student=student, semesters=semesters, warnings=warnings, total_avg10=total_avg10)

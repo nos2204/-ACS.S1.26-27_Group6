@@ -9,9 +9,15 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from app import create_app
-from persistence.models import (db, StudentModel, SubjectModel, SemesterModel,
-                                 GradeModel, CourseSectionModel, EnrollmentModel, GradeAppealModel)
+from persistence.models import (
+    db, StudentModel, SubjectModel, SemesterModel,
+    GradeModel, CourseSectionModel, EnrollmentModel, GradeAppealModel
+)
 from business.student_service import StudentService
+from business.grade_service import GradeService
+from business.enrollment_service import EnrollmentService
+from business.semester_service import SemesterService
+from business.analytics_service import AnalyticsService
 
 
 class TestStudentService(unittest.TestCase):
@@ -32,20 +38,23 @@ class TestStudentService(unittest.TestCase):
         self.app_context.pop()
 
     def test_score_to_gpa4(self):
-        self.assertEqual(StudentService.score_to_gpa4(9.0), 4.0)
+        self.assertEqual(GradeService.score_to_gpa4(9.0), 4.0)
+        self.assertEqual(GradeService.score_to_gpa4(8.5), 4.0)
+        self.assertEqual(GradeService.score_to_gpa4(7.5), 3.0)
+        self.assertEqual(GradeService.score_to_gpa4(6.0), 2.0)
+        self.assertEqual(GradeService.score_to_gpa4(4.5), 1.0)
+        self.assertEqual(GradeService.score_to_gpa4(3.0), 0.0)
+
+        # Backward compatibility test
         self.assertEqual(StudentService.score_to_gpa4(8.5), 4.0)
-        self.assertEqual(StudentService.score_to_gpa4(7.5), 3.0)
-        self.assertEqual(StudentService.score_to_gpa4(6.0), 2.0)
-        self.assertEqual(StudentService.score_to_gpa4(4.5), 1.0)
-        self.assertEqual(StudentService.score_to_gpa4(3.0), 0.0)
 
     def test_classify_academic(self):
-        self.assertEqual(StudentService.classify_academic(3.8), 'Xuất sắc')
-        self.assertEqual(StudentService.classify_academic(3.4), 'Giỏi')
-        self.assertEqual(StudentService.classify_academic(2.8), 'Khá')
-        self.assertEqual(StudentService.classify_academic(2.2), 'Trung bình')
-        self.assertEqual(StudentService.classify_academic(1.5), 'Yếu')
-        self.assertEqual(StudentService.classify_academic(0.5), 'Kém')
+        self.assertEqual(GradeService.classify_academic(3.8), 'Xuất sắc')
+        self.assertEqual(GradeService.classify_academic(3.4), 'Giỏi')
+        self.assertEqual(GradeService.classify_academic(2.8), 'Khá')
+        self.assertEqual(GradeService.classify_academic(2.2), 'Trung bình')
+        self.assertEqual(GradeService.classify_academic(1.5), 'Yếu')
+        self.assertEqual(GradeService.classify_academic(0.5), 'Kém')
 
     def test_calculate_student_gpa(self):
         sem = SemesterModel.query.first()
@@ -65,18 +74,19 @@ class TestStudentService(unittest.TestCase):
         db.session.add_all([g1, g2])
         db.session.commit()
 
-        gpa = StudentService.calculate_student_gpa(student.id)
+        gpa = GradeService.calculate_student_gpa(student.id)
         self.assertEqual(gpa, 3.43)
 
+        # Backward compatibility test
+        self.assertEqual(StudentService.calculate_student_gpa(student.id), 3.43)
+
     def test_dynamic_grade_weighting(self):
-        # Subject with 30% progress, 70% exam
         subj = SubjectModel(subject_code='LAB101', subject_name='Thực hành', credits=2, progress_weight=0.3, exam_weight=0.7)
         student = StudentModel(student_code='SV998', full_name='Trần Thị Test')
         sem = SemesterModel.query.first()
         db.session.add_all([subj, student])
         db.session.flush()
 
-        # Progress = 10.0, Exam = 5.0 -> Final = 10*0.3 + 5*0.7 = 3.0 + 3.5 = 6.5
         g = GradeModel(student_id=student.id, subject_id=subj.id, semester_id=sem.id, progress_grade=10.0, exam_grade=5.0)
         db.session.add(g)
         db.session.commit()
@@ -93,17 +103,15 @@ class TestStudentService(unittest.TestCase):
         db.session.add_all([sub_base, sub_adv, student])
         db.session.commit()
 
-        # Student hasn't passed sub_base -> should fail prerequisite check
-        passed, missing = StudentService.check_prerequisites_met(student.id, sub_adv)
+        passed, missing = EnrollmentService.check_prerequisites_met(student.id, sub_adv)
         self.assertFalse(passed)
         self.assertIn('Nhập môn Tin học', missing)
 
-        # Student passes sub_base (grade = 7.0 >= 4.0)
         g = GradeModel(student_id=student.id, subject_id=sub_base.id, semester_id=sem.id, progress_grade=7.0, exam_grade=7.0)
         db.session.add(g)
         db.session.commit()
 
-        passed, missing = StudentService.check_prerequisites_met(student.id, sub_adv)
+        passed, missing = EnrollmentService.check_prerequisites_met(student.id, sub_adv)
         self.assertTrue(passed)
         self.assertEqual(len(missing), 0)
 
@@ -120,13 +128,11 @@ class TestStudentService(unittest.TestCase):
         db.session.add_all([sec1, sec2, student])
         db.session.flush()
 
-        # Enroll student in sec1
         enr = EnrollmentModel(student_id=student.id, section_id=sec1.id, status='registered')
         db.session.add(enr)
         db.session.commit()
 
-        # Check registering sec2 -> should detect schedule conflict with sec1 (07:00-09:00 vs 08:30-10:30)
-        is_conflict, msg = StudentService.check_schedule_conflict(student.id, sec2)
+        is_conflict, msg = EnrollmentService.check_schedule_conflict(student.id, sec2)
         self.assertTrue(is_conflict)
         self.assertIn('Trùng lịch học với lớp HP01', msg)
 
@@ -137,12 +143,25 @@ class TestStudentService(unittest.TestCase):
         db.session.add_all([subj, student])
         db.session.commit()
 
-        ok, msg = StudentService.create_grade_appeal(student.id, subj.id, sem.id, 'Chấm sót câu 3 phần tự luận.')
+        ok, msg = GradeService.create_grade_appeal(student.id, subj.id, sem.id, 'Chấm sót câu 3 phần tự luận.')
         self.assertTrue(ok)
 
-        # Duplicate appeal while pending should fail
-        ok2, msg2 = StudentService.create_grade_appeal(student.id, subj.id, sem.id, 'Nộp thêm lý do.')
+        ok2, msg2 = GradeService.create_grade_appeal(student.id, subj.id, sem.id, 'Nộp thêm lý do.')
         self.assertFalse(ok2)
+
+    def test_analytics_dashboard_stats(self):
+        stats = AnalyticsService.get_dashboard_stats()
+        self.assertIn('total', stats)
+        self.assertIn('gioi', stats)
+        self.assertIn('kha', stats)
+        self.assertIn('tb', stats)
+        self.assertIn('yeu', stats)
+
+    def test_semester_service(self):
+        sem = SemesterService.get_current_semester()
+        self.assertIsNotNone(sem)
+        all_sems = SemesterService.get_all_semesters()
+        self.assertGreaterEqual(len(all_sems), 1)
 
 
 if __name__ == '__main__':

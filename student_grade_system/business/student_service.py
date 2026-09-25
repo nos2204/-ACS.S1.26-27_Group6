@@ -1,223 +1,35 @@
 # business/student_service.py
-import io
-import csv
-import pandas as pd
-from datetime import datetime
-from flask import session
-from persistence.models import db, StudentModel, GradeModel, SubjectModel, SemesterModel, AuditLog, DepartmentModel, UserModel, ClassModel, TeacherModel, CourseSectionModel, EnrollmentModel, GradeAppealModel
+from persistence.models import db, StudentModel
+from business.grade_service import GradeService
+from business.enrollment_service import EnrollmentService
+from business.semester_service import SemesterService
+from business.report_service import ReportService
+from business.analytics_service import AnalyticsService
 
-# Ngưỡng cảnh báo điểm tích lũy (thang 4)
-GPA_WARNING_THRESHOLD = 1.0   # Dưới 1.0 / 4 → cảnh báo nghiêm trọng
-GPA_LOW_THRESHOLD     = 2.0   # Dưới 2.0 / 4 → cảnh báo học lực yếu
+# Re-export thresholds for backward compatibility
+from business.grade_service import GPA_WARNING_THRESHOLD, GPA_LOW_THRESHOLD
 
 
 class StudentService:
+    """Nghiệp vụ quản lý hồ sơ sinh viên, tìm kiếm, phân trang và cập nhật học lực."""
 
     @staticmethod
-    def check_schedule_conflict(student_id, new_section):
-        """
-        Kiểm tra xung đột lịch học giữa lớp hp mới đăng ký và các lớp hp đã đăng ký của sinh viên.
-        Trả về (is_conflict, conflict_message)
-        """
-        from blueprints.timetable import parse_schedule_text, time_to_minutes
-        new_parsed = parse_schedule_text(new_section.schedule or '')
-        if not new_parsed or not new_parsed.get('weekday'):
-            return False, None
-
-        new_day = new_parsed['weekday']
-        new_start = time_to_minutes(new_parsed['start_time'])
-        new_end = time_to_minutes(new_parsed['end_time'])
-
-        enrollments = EnrollmentModel.query.filter_by(
-            student_id=student_id, status='registered'
-        ).join(CourseSectionModel).filter(
-            CourseSectionModel.semester_id == new_section.semester_id
-        ).all()
-
-        for e in enrollments:
-            sec = e.section
-            if not sec or sec.id == new_section.id:
-                continue
-            parsed = parse_schedule_text(sec.schedule or '')
-            if not parsed or not parsed.get('weekday'):
-                continue
-
-            if parsed['weekday'] == new_day:
-                start_m = time_to_minutes(parsed['start_time'])
-                end_m = time_to_minutes(parsed['end_time'])
-
-                if (new_start < end_m) and (new_end > start_m):
-                    subj_name = sec.subject.subject_name if sec.subject else sec.section_code
-                    msg = f"Trùng lịch học với lớp {sec.section_code} ({subj_name}) vào {sec.schedule}"
-                    return True, msg
-
-        return False, None
-
-    @staticmethod
-    def check_prerequisites_met(student_id, subject):
-        """
-        Kiểm tra xem sinh viên đã đạt tất cả các môn tiên quyết của `subject` chưa.
-        Trả về (all_passed, missing_prereqs)
-        """
-        if not subject or not subject.prerequisites:
-            return True, []
-
-        missing = []
-        for prereq in subject.prerequisites:
-            grades = GradeModel.query.filter_by(
-                student_id=student_id,
-                subject_id=prereq.id
-            ).all()
-            passed = any(g.is_passed for g in grades)
-            if not passed:
-                missing.append(prereq.subject_name)
-
-        if missing:
-            return False, missing
-        return True, []
-
-    @staticmethod
-    def create_grade_appeal(student_id, subject_id, semester_id, reason):
-        existing = GradeAppealModel.query.filter_by(
-            student_id=student_id, subject_id=subject_id, semester_id=semester_id, status='pending'
-        ).first()
-        if existing:
-            return False, 'Bạn đã có một yêu cầu phúc khảo đang chờ xử lý cho môn học này!'
-
-        appeal = GradeAppealModel(
-            student_id=student_id,
-            subject_id=subject_id,
-            semester_id=semester_id,
-            reason=reason.strip(),
-            status='pending'
-        )
-        db.session.add(appeal)
-        db.session.commit()
-        return True, 'Đã gửi yêu cầu phúc khảo thành công!'
-
-    @staticmethod
-    def score_to_gpa4(score):
-        """Chuyển đổi điểm thang 10 sang thang 4 (GPA)"""
-        if score >= 8.5: return 4.0
-        if score >= 7.0: return 3.0
-        if score >= 5.5: return 2.0
-        if score >= 4.0: return 1.0
-        return 0.0
-
-    @staticmethod
-    def calculate_student_gpa(student_id, semester_id=None):
-        """Tính GPA thang 4 dựa trên điểm tích lũy có trọng số tín chỉ"""
-        query = GradeModel.query.filter_by(student_id=student_id)
-        if semester_id:
-            query = query.filter_by(semester_id=semester_id)
-        grades = query.all()
-        if not grades:
-            return 0.0
-        total_points  = 0.0
-        total_credits = 0
-        for g in grades:
-            gpa4 = StudentService.score_to_gpa4(g.final_grade)
-            total_points  += gpa4 * g.subject.credits
-            total_credits += g.subject.credits
-        return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
-
-    @staticmethod
-    def calculate_student_avg10(student_id, semester_id=None):
-        """Tính điểm trung bình thang 10 có trọng số tín chỉ"""
-        query = GradeModel.query.filter_by(student_id=student_id)
-        if semester_id:
-            query = query.filter_by(semester_id=semester_id)
-        grades = query.all()
-        if not grades:
-            return 0.0
-        total_points  = 0.0
-        total_credits = 0
-        for g in grades:
-            total_points  += g.final_grade * g.subject.credits
-            total_credits += g.subject.credits
-        return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
-
-    @staticmethod
-    def classify_academic(gpa):
-        """Phân loại học lực theo thang GPA 4"""
-        if gpa >= 3.6: return 'Xuất sắc'
-        if gpa >= 3.2: return 'Giỏi'
-        if gpa >= 2.5: return 'Khá'
-        if gpa >= 2.0: return 'Trung bình'
-        if gpa >= 1.0: return 'Yếu'
-        return 'Kém'
-
-    @staticmethod
-    def get_student_warnings(student_id, semester_id=None):
-        """
-        Kiểm tra và trả về danh sách cảnh báo cho sinh viên:
-        - Môn học chưa hoàn thành (chưa đạt / rớt)
-        - Điểm tích lũy (GPA) thấp
-        """
-        warnings = []
-
-        # 1. Kiểm tra các môn chưa hoàn thành (điểm < 4.0 = Rớt)
-        query = GradeModel.query.filter_by(student_id=student_id)
-        if semester_id:
-            query = query.filter_by(semester_id=semester_id)
-        grades = query.all()
-
-        failed_subjects = [g for g in grades if not g.is_passed]
-        if failed_subjects:
-            mon_list = ', '.join(f"{g.subject.subject_name} ({g.final_grade:.1f})" for g in failed_subjects)
-            warnings.append({
-                'level': 'danger',
-                'icon': 'bi-x-circle-fill',
-                'message': f"Chưa hoàn thành {len(failed_subjects)} môn học: {mon_list}. Cần học lại hoặc thi lại."
-            })
-
-        # 2. Kiểm tra môn đăng ký nhưng chưa có điểm
-        enrollments = EnrollmentModel.query.filter_by(student_id=student_id, status='registered').all()
-        graded_subject_ids = {g.subject_id for g in grades}
-        missing_grades = []
-        for enr in enrollments:
-            subj = enr.section.subject
-            if subj.id not in graded_subject_ids:
-                missing_grades.append(subj.subject_name)
-        if missing_grades:
-            mon_list = ', '.join(missing_grades)
-            warnings.append({
-                'level': 'warning',
-                'icon': 'bi-hourglass-split',
-                'message': f"Chưa có điểm cho {len(missing_grades)} môn đã đăng ký: {mon_list}."
-            })
-
-        # 3. Kiểm tra GPA tích lũy
-        gpa = StudentService.calculate_student_gpa(student_id)
-        if gpa < GPA_WARNING_THRESHOLD and gpa > 0:
-            warnings.append({
-                'level': 'danger',
-                'icon': 'bi-exclamation-octagon-fill',
-                'message': f"Điểm tích lũy rất thấp (GPA = {gpa:.2f}/4.0). Có nguy cơ bị buộc thôi học!"
-            })
-        elif gpa < GPA_LOW_THRESHOLD and gpa > 0:
-            warnings.append({
-                'level': 'warning',
-                'icon': 'bi-exclamation-triangle-fill',
-                'message': f"Điểm tích lũy chưa đủ (GPA = {gpa:.2f}/4.0). Cần cải thiện kết quả học tập."
-            })
-
-        return warnings
-
-    @staticmethod
-    def update_student_stats(student_id):
+    def update_student_stats(student_id: int):
+        """Tính lại GPA và cập nhật xếp loại học lực cho sinh viên."""
         student = StudentModel.query.get(student_id)
         if student:
-            student.gpa           = StudentService.calculate_student_gpa(student_id)
-            student.academic_rank = StudentService.classify_academic(student.gpa)
+            student.gpa = GradeService.calculate_student_gpa(student_id)
+            student.academic_rank = GradeService.classify_academic(student.gpa)
             db.session.commit()
 
     @staticmethod
-    def search_students(keyword='', gender='', rank='', department_id='', class_id='',
-                        page=1, per_page=15):
+    def search_students(keyword: str = '', gender: str = '', rank: str = '',
+                        department_id: str = '', class_id: str = '',
+                        page: int = 1, per_page: int = 15):
+        """Tìm kiếm, lọc và phân trang danh sách sinh viên."""
         query = StudentModel.query
         if keyword:
-            like  = f'%{keyword}%'
+            like = f'%{keyword}%'
             query = query.filter(
                 db.or_(
                     StudentModel.full_name.ilike(like),
@@ -234,272 +46,72 @@ class StudentService:
         if class_id:
             query = query.filter_by(class_id=class_id)
 
-        total    = query.count()
+        total = query.count()
         students = query.order_by(StudentModel.full_name).paginate(
             page=page, per_page=per_page, error_out=False
         )
         return students.items, students.pages, total
 
     @staticmethod
-    def get_dashboard_stats():
-        total = StudentModel.query.count()
-        # Dùng xếp loại theo GPA thang 4
-        gioi  = StudentModel.query.filter(StudentModel.academic_rank.in_(['Giỏi', 'Xuất sắc'])).count()
-        kha   = StudentModel.query.filter_by(academic_rank='Khá').count()
-        tb    = StudentModel.query.filter_by(academic_rank='Trung bình').count()
-        yeu   = StudentModel.query.filter(StudentModel.academic_rank.in_(['Yếu', 'Kém'])).count()
-        nam   = StudentModel.query.filter_by(gender='Nam').count()
-        nu    = StudentModel.query.filter_by(gender='Nữ').count()
-        total_subjects = SubjectModel.query.count()
-        total_departments = DepartmentModel.query.count()
-        total_semesters = SemesterModel.query.count()
-        total_users = UserModel.query.count()
-        total_classes = ClassModel.query.count()
-        total_teachers = TeacherModel.query.count()
-        total_sections = CourseSectionModel.query.count()
-        total_enrollments = EnrollmentModel.query.filter_by(status='registered').count()
-        no_account = StudentModel.query.filter(~StudentModel.id.in_(db.session.query(UserModel.student_id).filter(UserModel.student_id.isnot(None)))).count()
-        no_grade = StudentModel.query.filter(~StudentModel.id.in_(db.session.query(GradeModel.student_id))).count()
+    def get_student_by_code(student_code: str):
+        """Tìm sinh viên theo mã số sinh viên."""
+        return StudentModel.query.filter_by(student_code=student_code.strip()).first()
 
-        # Cảnh báo học sinh có GPA thấp
-        warning_students = StudentModel.query.filter(
-            StudentModel.gpa > 0,
-            StudentModel.gpa < GPA_LOW_THRESHOLD
-        ).count()
-
-        top5  = (StudentModel.query.filter(StudentModel.gpa > 0).order_by(StudentModel.gpa.desc()).limit(5).all())
-        current_sem = SemesterModel.query.filter_by(is_current=True).first()
-
-        return dict(total=total, gioi=gioi, kha=kha, tb=tb, yeu=yeu,
-                    nam=nam, nu=nu, top5=top5, current_sem=current_sem,
-                    total_subjects=total_subjects, total_departments=total_departments,
-                    total_semesters=total_semesters, total_users=total_users,
-                    total_classes=total_classes, total_teachers=total_teachers,
-                    total_sections=total_sections, total_enrollments=total_enrollments,
-                    no_account=no_account, no_grade=no_grade,
-                    warning_students=warning_students)
+    # -------------------------------------------------------------------------
+    # Backward Compatibility Delegations (Giữ tương thích cho các lệnh gọi cũ)
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def score_to_gpa4(score):
+        return GradeService.score_to_gpa4(score)
 
     @staticmethod
-    def upsert_grade(student_id, subject_id, semester_id,
-                     progress_grade, exam_grade, actor='system'):
-        grade = GradeModel.query.filter_by(
-            student_id=student_id, subject_id=subject_id,
-            semester_id=semester_id
-        ).first()
+    def classify_academic(gpa):
+        return GradeService.classify_academic(gpa)
 
-        subject  = SubjectModel.query.get(subject_id)
-        student  = StudentModel.query.get(student_id)
-        sem_name = SemesterModel.query.get(semester_id).display_name if semester_id else '?'
+    @staticmethod
+    def calculate_student_gpa(student_id, semester_id=None):
+        return GradeService.calculate_student_gpa(student_id, semester_id)
 
-        if grade:
-            old_detail = (f"QT={grade.progress_grade}, Thi={grade.exam_grade}")
-            grade.progress_grade = progress_grade
-            grade.exam_grade     = exam_grade
-            grade.updated_at     = datetime.utcnow()
-            action = 'update_grade'
-        else:
-            old_detail = 'mới'
-            grade = GradeModel(
-                student_id=student_id, subject_id=subject_id,
-                semester_id=semester_id,
-                progress_grade=progress_grade, exam_grade=exam_grade
-            )
-            db.session.add(grade)
-            action = 'insert_grade'
+    @staticmethod
+    def calculate_student_avg10(student_id, semester_id=None):
+        return GradeService.calculate_student_avg10(student_id, semester_id)
 
-        db.session.commit()
-        StudentService.update_student_stats(student_id)
+    @staticmethod
+    def get_student_warnings(student_id, semester_id=None):
+        return GradeService.get_student_warnings(student_id, semester_id)
 
-        log = AuditLog(
-            actor=actor,
-            action=action,
-            target=f"SV={student.student_code} | Môn={subject.subject_code} | Kỳ={sem_name}",
-            detail=f"Cũ: {old_detail} → Mới: QT={progress_grade}, Thi={exam_grade}"
-        )
-        db.session.add(log)
-        db.session.commit()
+    @staticmethod
+    def upsert_grade(student_id, subject_id, semester_id, progress_grade, exam_grade, actor='system'):
+        return GradeService.upsert_grade(student_id, subject_id, semester_id, progress_grade, exam_grade, actor)
+
+    @staticmethod
+    def create_grade_appeal(student_id, subject_id, semester_id, reason):
+        return GradeService.create_grade_appeal(student_id, subject_id, semester_id, reason)
+
+    @staticmethod
+    def check_schedule_conflict(student_id, new_section):
+        return EnrollmentService.check_schedule_conflict(student_id, new_section)
+
+    @staticmethod
+    def check_prerequisites_met(student_id, subject):
+        return EnrollmentService.check_prerequisites_met(student_id, subject)
 
     @staticmethod
     def import_students_from_csv(file_stream, actor='admin'):
-        added   = 0
-        skipped = 0
-        errors  = []
-
-        text    = io.TextIOWrapper(file_stream, encoding='utf-8-sig')
-        reader  = csv.DictReader(text)
-
-        for i, row in enumerate(reader, start=2):
-            code = row.get('student_code', '').strip()
-            name = row.get('full_name', '').strip()
-            if not code or not name:
-                errors.append(f"Dòng {i}: thiếu MSSV hoặc họ tên.")
-                continue
-
-            if StudentModel.query.filter_by(student_code=code).first():
-                skipped += 1
-                continue
-
-            dob = None
-            dob_str = row.get('date_of_birth', '').strip()
-            if dob_str:
-                try:
-                    dob = datetime.strptime(dob_str, '%Y-%m-%d').date()
-                except ValueError:
-                    errors.append(f"Dòng {i}: ngày sinh '{dob_str}' không đúng định dạng YYYY-MM-DD.")
-
-            student = StudentModel(
-                student_code  = code,
-                full_name     = name,
-                gender        = row.get('gender', 'Nam').strip() or 'Nam',
-                email         = row.get('email', '').strip() or None,
-                phone         = row.get('phone', '').strip() or None,
-                class_name    = row.get('class_name', '').strip() or None,
-                date_of_birth = dob,
-            )
-            db.session.add(student)
-            added += 1
-
-        db.session.commit()
-
-        log = AuditLog(actor=actor, action='import_students',
-                       detail=f"Thêm {added}, bỏ qua {skipped}, lỗi {len(errors)}")
-        db.session.add(log)
-        db.session.commit()
-
-        return added, skipped, errors
+        return ReportService.import_students_from_csv(file_stream, actor)
 
     @staticmethod
     def import_grades_from_csv(file_stream, semester_id, actor='admin'):
-        updated = 0
-        errors  = []
-
-        text   = io.TextIOWrapper(file_stream, encoding='utf-8-sig')
-        reader = csv.DictReader(text)
-
-        for i, row in enumerate(reader, start=2):
-            sc   = row.get('student_code', '').strip()
-            subc = row.get('subject_code', '').strip()
-            try:
-                pg = float(row.get('progress_grade', 0))
-                eg = float(row.get('exam_grade', 0))
-                assert 0 <= pg <= 10 and 0 <= eg <= 10
-            except (ValueError, AssertionError):
-                errors.append(f"Dòng {i}: điểm không hợp lệ.")
-                continue
-
-            student = StudentModel.query.filter_by(student_code=sc).first()
-            subject = SubjectModel.query.filter_by(subject_code=subc).first()
-            if not student:
-                errors.append(f"Dòng {i}: không tìm thấy MSSV '{sc}'.")
-                continue
-            if not subject:
-                errors.append(f"Dòng {i}: không tìm thấy mã môn '{subc}'.")
-                continue
-
-            StudentService.upsert_grade(student.id, subject.id, semester_id,
-                                        pg, eg, actor=actor)
-            updated += 1
-
-        return updated, errors
+        return ReportService.import_grades_from_csv(file_stream, semester_id, actor)
 
     @staticmethod
     def export_students_to_excel(file_path, semester_id=None):
-        students = StudentModel.query.order_by(StudentModel.student_code).all()
-        rows = []
-        for s in students:
-            gpa = (StudentService.calculate_student_gpa(s.id, semester_id)
-                   if semester_id else s.gpa)
-            rows.append({
-                'MSSV'        : s.student_code,
-                'Họ và Tên'  : s.full_name,
-                'Giới tính'  : s.gender,
-                'Lớp'        : s.display_class or '',
-                'Email'       : s.email or '',
-                'Điểm TL (GPA/4)': gpa,
-                'Xếp loại'   : StudentService.classify_academic(gpa),
-            })
-        df = pd.DataFrame(rows)
-        with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Danh sách SV')
-            ws = writer.sheets['Danh sách SV']
-            for col in ws.columns:
-                max_len = max(len(str(cell.value or '')) for cell in col) + 4
-                ws.column_dimensions[col[0].column_letter].width = min(max_len, 40)
+        return ReportService.export_students_to_excel(file_path, semester_id)
 
     @staticmethod
     def export_transcript_pdf(student_id, semester_id=None):
-        try:
-            from weasyprint import HTML
-        except ImportError:
-            raise RuntimeError("Cần cài weasyprint: pip install weasyprint")
+        return ReportService.export_transcript_pdf(student_id, semester_id)
 
-        student  = StudentModel.query.get_or_404(student_id)
-        query    = GradeModel.query.filter_by(student_id=student_id)
-        if semester_id:
-            query = query.filter_by(semester_id=semester_id)
-        grades   = query.all()
-        sem_name = (SemesterModel.query.get(semester_id).display_name
-                    if semester_id else 'Toàn khoá')
-        gpa      = StudentService.calculate_student_gpa(student_id, semester_id)
-
-        rows_html = ''
-        for i, g in enumerate(grades, 1):
-            rows_html += f"""
-            <tr>
-                <td>{i}</td>
-                <td>{g.subject.subject_code}</td>
-                <td>{g.subject.subject_name}</td>
-                <td style="text-align:center">{g.subject.credits}</td>
-                <td style="text-align:center">{g.progress_grade}</td>
-                <td style="text-align:center">{g.exam_grade}</td>
-                <td style="text-align:center;font-weight:bold">{g.final_grade}</td>
-                <td style="text-align:center">{g.letter_grade}</td>
-                <td style="text-align:center">{g.grade_point_4}</td>
-                <td style="text-align:center">{"Đạt" if g.is_passed else "Rớt"}</td>
-            </tr>"""
-
-        html_content = f"""
-        <!DOCTYPE html>
-        <html lang="vi">
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body {{ font-family: Arial, sans-serif; font-size: 13px; margin: 30px; }}
-            h2 {{ text-align: center; font-size: 16px; margin-bottom: 4px; }}
-            .subtitle {{ text-align: center; color: #555; margin-bottom: 20px; }}
-            .info {{ margin-bottom: 16px; }}
-            .info span {{ margin-right: 24px; }}
-            table {{ width: 100%; border-collapse: collapse; }}
-            th {{ background: #212529; color: #fff; padding: 7px; }}
-            td {{ border: 1px solid #ccc; padding: 6px; }}
-            tr:nth-child(even) td {{ background: #f8f8f8; }}
-            .gpa-row {{ margin-top: 16px; font-size: 14px; font-weight: bold; }}
-            .footer {{ margin-top: 40px; text-align: right; font-size: 12px; color: #777; }}
-          </style>
-        </head>
-        <body>
-          <h2>BẢNG KẾT QUẢ HỌC TẬP</h2>
-          <div class="subtitle">Hệ thống Quản lý Sinh viên — QLSV</div>
-          <div class="info">
-            <span><b>MSSV:</b> {student.student_code}</span>
-            <span><b>Họ tên:</b> {student.full_name}</span>
-            <span><b>Lớp:</b> {student.display_class or '—'}</span>
-            <span><b>Học kỳ:</b> {sem_name}</span>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>#</th><th>Mã môn</th><th>Tên môn học</th><th>TC</th>
-                <th>Điểm QT</th><th>Điểm thi</th><th>Tổng kết</th><th>Chữ</th><th>Điểm (hệ 4)</th><th>KQ</th>
-              </tr>
-            </thead>
-            <tbody>{rows_html}</tbody>
-          </table>
-          <div class="gpa-row">Điểm tích lũy (GPA) {sem_name}: {gpa}/4.0 — {StudentService.classify_academic(gpa)}</div>
-          <div class="footer">Xuất lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
-        </body>
-        </html>
-        """
-
-        pdf_bytes = HTML(string=html_content).write_pdf()
-        return pdf_bytes
+    @staticmethod
+    def get_dashboard_stats():
+        return AnalyticsService.get_dashboard_stats()

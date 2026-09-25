@@ -581,6 +581,50 @@ body.sidebar-collapsed .sidebar-toggle-btn i {
 }
 
 /* =======================================================
+   TABLE STYLING
+   ======================================================= */
+
+[data-bs-theme="dark"] .table {
+    color: var(--text-main) !important;
+}
+
+[data-bs-theme="dark"] .table thead {
+    background-color: var(--table-header-bg) !important;
+}
+
+[data-bs-theme="dark"] .table thead th {
+    color: var(--table-header-text) !important;
+    border-color: var(--border-color) !important;
+}
+
+[data-bs-theme="dark"] .table tbody tr {
+    background-color: var(--card-bg) !important;
+    border-color: var(--border-color) !important;
+}
+
+[data-bs-theme="dark"] .table tbody tr td {
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+}
+
+[data-bs-theme="dark"] .table-striped tbody tr:nth-of-type(odd) {
+    background-color: var(--card-header-bg) !important;
+}
+
+[data-bs-theme="dark"] .table-hover tbody tr:hover {
+    background-color: var(--sidebar-hover) !important;
+}
+
+[data-bs-theme="dark"] .table code {
+    background-color: var(--sidebar-hover) !important;
+    color: var(--color-primary) !important;
+}
+
+[data-bs-theme="dark"] .badge {
+    color: #000000 !important;
+}
+
+/* =======================================================
    TIMETABLE
    ======================================================= */
 

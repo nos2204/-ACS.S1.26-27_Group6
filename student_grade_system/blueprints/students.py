@@ -4,6 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from persistence.models import (db, StudentModel, GradeModel, SubjectModel, SemesterModel,
                                  DepartmentModel, ClassModel, UserModel, EnrollmentModel)
 from business.student_service import StudentService
+from business.report_service import ReportService
 from gateway import token_required, admin_required, admin_or_self_required
 
 students_bp = Blueprint('students', __name__)
@@ -148,7 +149,7 @@ def import_students():
             flash('Vui lòng chọn file CSV hợp lệ.', 'danger')
             return redirect(url_for('import_students'))
 
-        added, skipped, errors = StudentService.import_students_from_csv(
+        added, skipped, errors = ReportService.import_students_from_csv(
             f.stream, actor=session['username']
         )
         flash(f'Import hoàn tất: thêm mới {added}, bỏ qua {skipped} (trùng MSSV).', 'success')

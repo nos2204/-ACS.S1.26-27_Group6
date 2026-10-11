@@ -28,43 +28,127 @@
 
 {% if session.get('role') == 'admin' %}
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3"><div class="card shadow-sm text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-info">{{ total_classes|default(0) }}</div><div class="text-muted small"><i class="bi bi-diagram-3 me-1"></i>Tổng lớp học</div></div></div></div>
-    <div class="col-6 col-md-3"><div class="card shadow-sm text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-primary">{{ total_teachers|default(0) }}</div><div class="text-muted small"><i class="bi bi-person-workspace me-1"></i>Giảng viên</div></div></div></div>
-    <div class="col-6 col-md-3"><div class="card shadow-sm text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-success">{{ total_sections|default(0) }}</div><div class="text-muted small"><i class="bi bi-collection me-1"></i>Lớp học phần</div></div></div></div>
-    <div class="col-6 col-md-3"><div class="card shadow-sm text-center"><div class="card-body py-3"><div class="fs-3 fw-bold text-warning">{{ total_enrollments|default(0) }}</div><div class="text-muted small"><i class="bi bi-journal-plus me-1"></i>Lượt đăng ký</div></div></div></div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card-modern shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-info me-3">
+                        <i class="bi bi-diagram-3"></i>
+                    </div>
+                    <div>
+                        <div class="fs-3 fw-bold text-info">{{ total_classes|default(0) }}</div>
+                        <div class="text-muted small">Tổng lớp học</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card-modern shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-primary me-3">
+                        <i class="bi bi-person-workspace"></i>
+                    </div>
+                    <div>
+                        <div class="fs-3 fw-bold text-primary">{{ total_teachers|default(0) }}</div>
+                        <div class="text-muted small">Giảng viên</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card-modern shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-success me-3">
+                        <i class="bi bi-collection"></i>
+                    </div>
+                    <div>
+                        <div class="fs-3 fw-bold text-success">{{ total_sections|default(0) }}</div>
+                        <div class="text-muted small">Lớp học phần</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card-modern shadow-sm">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-warning me-3">
+                        <i class="bi bi-journal-plus"></i>
+                    </div>
+                    <div>
+                        <div class="fs-3 fw-bold text-warning">{{ total_enrollments|default(0) }}</div>
+                        <div class="text-muted small">Lượt đăng ký</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endif %}
 
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card stat-card-modern shadow-sm">
             <div class="card-body py-3">
-                <div class="fs-2 fw-bold text-primary">{{ total }}</div>
-                <div class="text-muted small"><i class="bi bi-people me-1"></i>Tổng sinh viên</div>
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-primary me-3">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold text-primary">{{ total }}</div>
+                        <div class="text-muted small">Tổng sinh viên</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card stat-card-modern shadow-sm">
             <div class="card-body py-3">
-                <div class="fs-2 fw-bold text-success">{{ gioi }}</div>
-                <div class="text-muted small"><i class="bi bi-star-fill me-1"></i>Học lực Giỏi</div>
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-gold me-3">
+                        <i class="bi bi-trophy-fill"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold text-warning">{{ gioi }}</div>
+                        <div class="text-muted small">Học lực Giỏi</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card stat-card-modern shadow-sm">
             <div class="card-body py-3">
-                <div class="fs-2 fw-bold text-warning">{{ tb }}</div>
-                <div class="text-muted small"><i class="bi bi-dash-circle me-1"></i>Trung bình</div>
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-warning me-3">
+                        <i class="bi bi-dash-circle"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold text-warning">{{ tb }}</div>
+                        <div class="text-muted small">Trung bình</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center">
+        <div class="card stat-card-modern shadow-sm">
             <div class="card-body py-3">
-                <div class="fs-2 fw-bold text-danger">{{ yeu }}</div>
-                <div class="text-muted small"><i class="bi bi-x-circle me-1"></i>Học lực Yếu</div>
+                <div class="d-flex align-items-center">
+                    <div class="icon-box icon-box-danger me-3">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </div>
+                    <div>
+                        <div class="fs-2 fw-bold text-danger">{{ yeu }}</div>
+                        <div class="text-muted small">Học lực Yếu</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -119,10 +203,15 @@
                             {% for s in top5 %}
                             <tr>
                                 <td class="ps-3">
-                                    {% if loop.index == 1 %}<i class="bi bi-trophy-fill text-warning fs-5"></i>
-                                    {% elif loop.index == 2 %}<i class="bi bi-trophy-fill text-secondary fs-5"></i>
-                                    {% elif loop.index == 3 %}<i class="bi bi-trophy-fill text-danger fs-5"></i>
-                                    {% else %}<span class="text-muted fw-bold">{{ loop.index }}</span>{% endif %}
+                                    {% if loop.index == 1 %}
+                                    <span class="medal-badge medal-gold">1</span>
+                                    {% elif loop.index == 2 %}
+                                    <span class="medal-badge medal-silver">2</span>
+                                    {% elif loop.index == 3 %}
+                                    <span class="medal-badge medal-bronze">3</span>
+                                    {% else %}
+                                    <span class="text-muted fw-bold">{{ loop.index }}</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <div class="fw-semibold">{{ s.full_name }}</div>
@@ -164,6 +253,90 @@
     </div>
 </div>
 {% endif %}
+
+<style>
+/* Modern Stat Cards */
+.stat-card-modern {
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.stat-card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.icon-box {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.icon-box-info {
+    background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+    color: #0284c7;
+}
+
+.icon-box-primary {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #2563eb;
+}
+
+.icon-box-success {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #16a34a;
+}
+
+.icon-box-warning {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+.icon-box-danger {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.icon-box-gold {
+    background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%);
+    color: #ca8a04;
+}
+
+/* Top 5 GPA Badges */
+.medal-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.medal-gold {
+    background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+}
+
+.medal-silver {
+    background: linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(192, 192, 192, 0.4);
+}
+
+.medal-bronze {
+    background: linear-gradient(135deg, #cd7f32 0%, #b87333 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(205, 127, 50, 0.4);
+}
+</style>
 
 <script>
 // --- 1. XỬ LÝ CHUYỂN ĐỔI CHẾ ĐỘ MÀU (LIGHT/DARK MODE) ---
@@ -211,7 +384,7 @@ function renderAllCharts() {
     const valNam  = Number(dataEl.getAttribute('data-nam')) || 0;
     const valNu   = Number(dataEl.getAttribute('data-nu')) || 0;
 
-    // A. XỬ LÝ BIỂU ĐỒ PHÂN BỐ HỌC LỰC
+    // A. XỬ LÝ BIỂU ĐỒ PHÂN BỐ HỌC LỰC (Donut Chart với màu pastel)
     if (rankChartInstance !== null) {
         rankChartInstance.destroy();
     }
@@ -223,20 +396,46 @@ function renderAllCharts() {
             labels: ['Giỏi', 'Trung bình', 'Yếu'],
             datasets: [{
                 data: [valGioi, valTb, valYeu],
-                backgroundColor: ['#198754', '#ffc107', '#dc3545'],
-                borderWidth: 0
+                backgroundColor: [
+                    'rgba(134, 239, 172, 0.8)',  // Pastel green
+                    'rgba(251, 191, 36, 0.8)',  // Pastel yellow
+                    'rgba(248, 113, 113, 0.8)'   // Pastel red
+                ],
+                borderColor: [
+                    'rgba(134, 239, 172, 1)',
+                    'rgba(251, 191, 36, 1)',
+                    'rgba(248, 113, 113, 1)'
+                ],
+                borderWidth: 2,
+                hoverOffset: 10
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '65%',
             plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } }
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 15,
+                        font: { size: 12 },
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 }
+                }
             }
         }
     });
 
-    // B. XỬ LÝ BIỂU ĐỒ GIỚI TÍNH (Đã đổ biến thực tế valNam, valNu)
+    // B. XỬ LÝ BIỂU ĐỒ GIỚI TÍNH (Pie Chart với màu pastel)
     if (genderChartInstance !== null) {
         genderChartInstance.destroy();
     }
@@ -247,16 +446,39 @@ function renderAllCharts() {
         data: {
             labels: ['Nam', 'Nữ'],
             datasets: [{
-                data: [valNam, valNu], 
-                backgroundColor: ['#0d6efd', '#f43f5e'],
-                borderWidth: 0
+                data: [valNam, valNu],
+                backgroundColor: [
+                    'rgba(96, 165, 250, 0.8)',  // Pastel blue
+                    'rgba(244, 114, 182, 0.8)'   // Pastel pink
+                ],
+                borderColor: [
+                    'rgba(96, 165, 250, 1)',
+                    'rgba(244, 114, 182, 1)'
+                ],
+                borderWidth: 2,
+                hoverOffset: 10
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } }
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 15,
+                        font: { size: 12 },
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 }
+                }
             }
         }
     });

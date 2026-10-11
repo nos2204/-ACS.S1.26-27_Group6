@@ -80,6 +80,22 @@ def admin_or_self_required(f):
     return decorated
 
 
+def admin_or_self_or_teacher_required(f):
+    """Cho phép admin, sinh viên xem điểm của mình, hoặc giáo viên xem điểm sinh viên"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get('role') == 'admin':
+            return f(*args, **kwargs)
+        target_id = kwargs.get('student_id')
+        if target_id and str(session.get('linked_student_id')) == str(target_id):
+            return f(*args, **kwargs)
+        if session.get('role') == 'teacher':
+            return f(*args, **kwargs)
+        flash('Bạn không có quyền truy cập tài nguyên này!', 'danger')
+        return redirect(url_for('dashboard'))
+    return decorated
+
+
 def teacher_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):

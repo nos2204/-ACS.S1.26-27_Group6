@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Đơn phúc khảo của tôi — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-chat-square-text me-2"></i>
+                Đơn phúc khảo điểm của tôi
+            </div>
+            <div class="card-body p-0">
+                {% if appeals %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Môn học</th>
+                                <th>Học kỳ</th>
+                                <th>Lý do phúc khảo</th>
+                                <th>Ngày gửi</th>
+                                <th>Trạng thái</th>
+                                <th>Phản hồi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for appeal in appeals %}
+                            <tr>
+                                <td>
+                                    <strong>{{ appeal.subject.subject_name }}</strong>
+                                    <br><small class="text-muted">{{ appeal.subject.subject_code }}</small>
+                                </td>
+                                <td>{{ appeal.semester.display_name }}</td>
+                                <td>
+                                    <small>{{ appeal.reason }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ appeal.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge
+                                        {% if appeal.status == 'pending' %}bg-warning
+                                        {% elif appeal.status == 'approved' %}bg-success
+                                        {% elif appeal.status == 'rejected' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {% if appeal.status == 'pending' %}Chờ xử lý
+                                        {% elif appeal.status == 'approved' %}Đồng ý
+                                        {% elif appeal.status == 'rejected' %}Từ chối
+                                        {% else %}{{ appeal.status }}{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if appeal.response %}
+                                    <small>{{ appeal.response }}</small>
+                                    {% else %}
+                                    <em class="text-muted">Chưa phản hồi</em>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <p class="text-muted mt-3">Bạn chưa gửi đơn phúc khảo nào.</p>
+                    <p class="text-muted small">Để gửi đơn phúc khảo, vui lòng vào trang quản lý điểm của bạn.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

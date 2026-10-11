@@ -261,6 +261,14 @@
                     <span class="sidebar-text">TKB sinh viên</span>
                 </a>
             </li>
+
+            <li>
+                <a class="{% if request.endpoint == 'grades.student_appeals' %}active{% endif %}"
+                   href="{{ url_for('grades.student_appeals') }}">
+                    <i class="bi bi-chat-square-text me-2"></i>
+                    <span class="sidebar-text">Phúc khảo điểm</span>
+                </a>
+            </li>
             {% endif %}
 
             <li>

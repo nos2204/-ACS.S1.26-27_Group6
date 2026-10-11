@@ -89,6 +89,7 @@
                             <th class="text-center">Điểm chữ</th>
                             <th class="text-center">GPA (hệ 4)</th>
                             <th class="text-center">Kết quả</th>
+                            {% if session.get('role') == 'student' %}<th class="text-center">Thao tác</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -139,6 +140,15 @@
                                     {% else %}<span class="badge bg-danger">Rớt</span>{% endif %}
                                 {% else %}—{% endif %}
                             </td>
+                            {% if session.get('role') == 'student' and g %}
+                            <td class="text-center">
+                                <button type="button" class="btn btn-outline-warning btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#appealModal{{ subject.id }}">
+                                    <i class="bi bi-chat-square-text"></i> Phúc khảo
+                                </button>
+                            </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -174,4 +184,44 @@
     </a>
 </div>
 {% endif %}
+
+<!-- Modal gửi đơn phúc khảo -->
+{% for subject in subjects %}
+{% set g = grades.get(subject.id) %}
+{% if g %}
+<div class="modal fade" id="appealModal{{ subject.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('grades.submit_grade_appeal') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="subject_id" value="{{ subject.id }}">
+                <input type="hidden" name="semester_id" value="{{ sel_sem_id }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Gửi đơn phúc khảo điểm</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Môn học</label>
+                        <input type="text" class="form-control" value="{{ subject.subject_name }} ({{ subject.subject_code }})" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Điểm hiện tại</label>
+                        <input type="text" class="form-control" value="{{ g.final_grade }} ({{ g.letter_grade }})" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lý do phúc khảo <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control" rows="4" required placeholder="Nhập lý do bạn muốn phúc khảo điểm môn này..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-warning">Gửi đơn phúc khảo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
 {% endblock %}

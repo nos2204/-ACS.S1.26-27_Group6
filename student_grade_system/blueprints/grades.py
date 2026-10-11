@@ -3,14 +3,14 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from persistence.models import (db, StudentModel, GradeModel, SubjectModel, SemesterModel)
 from business.grade_service import GradeService
 from business.report_service import ReportService
-from gateway import token_required, admin_required, admin_or_self_required
+from gateway import token_required, admin_required, admin_or_self_required, admin_or_self_or_teacher_required
 
 grades_bp = Blueprint('grades', __name__)
 
 
 @grades_bp.route('/students/<int:student_id>/grades', methods=['GET', 'POST'], endpoint='manage_grades')
 @token_required
-@admin_or_self_required
+@admin_or_self_or_teacher_required
 def manage_grades(student_id):
     student   = StudentModel.query.get_or_404(student_id)
     subjects  = SubjectModel.query.order_by(SubjectModel.subject_name).all()
@@ -94,7 +94,7 @@ def import_grades():
 
 @grades_bp.route('/students/<int:student_id>/transcript.pdf', endpoint='export_transcript_pdf')
 @token_required
-@admin_or_self_required
+@admin_or_self_or_teacher_required
 def export_transcript_pdf(student_id):
     sem_id = request.args.get('semester_id', type=int)
     try:
@@ -132,3 +132,28 @@ def submit_grade_appeal():
     ok, msg = GradeService.create_grade_appeal(user.student_id, subject_id, semester_id, reason)
     flash(msg, 'success' if ok else 'warning')
     return redirect(url_for('manage_grades', student_id=user.student_id, semester_id=semester_id))
+
+
+@grades_bp.route('/student/appeals', endpoint='student_appeals')
+@token_required
+def student_appeals():
+    """Xem danh sách đơn phúc khảo của sinh viên"""
+    if session.get('role') != 'student':
+        flash('Bạn không có quyền truy cập trang này!', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    from persistence.models import UserModel, GradeAppealModel
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    
+    if not user or not user.student_id:
+        flash('Tài khoản sinh viên chưa được liên kết!', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    appeals = (GradeAppealModel.query
+               .filter_by(student_id=user.student_id)
+               .join(SubjectModel)
+               .join(SemesterModel)
+               .order_by(GradeAppealModel.created_at.desc())
+               .all())
+    
+    return render_template('student_appeals.html', appeals=appeals)

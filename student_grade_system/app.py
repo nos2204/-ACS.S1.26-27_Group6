@@ -107,15 +107,17 @@ def create_app(config=None):
     return app
 
 
-def _add_column_if_missing(app, table_name, column_name, column_type):
-    engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
-    with engine.connect() as connection:
-        query = text(f"PRAGMA table_info({table_name})")
-        result = connection.execute(query)
-        columns = [row[1] for row in result]  # Column name is at index 1
-        if column_name not in columns:
-            query = text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
-            connection.execute(query)
+def _add_column_if_missing(table_name, column_name, column_sql):
+    try:
+        inspector = sa_inspect(db.engine)
+        if table_name not in inspector.get_table_names():
+            return
+        cols = [c['name'] for c in inspector.get_columns(table_name)]
+        if column_name not in cols:
+            db.session.execute(db.text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}"))
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _init_database(app):
@@ -126,30 +128,30 @@ def _init_database(app):
             db.create_all()
 
             # Migration for semester extension fields
-            _add_column_if_missing(app, 'semesters', 'start_date', 'start_date DATE NULL')
-            _add_column_if_missing(app, 'semesters', 'end_date', 'end_date DATE NULL')
-            _add_column_if_missing(app, 'semesters', 'original_end_date', 'original_end_date DATE NULL')
-            _add_column_if_missing(app, 'semesters', 'extension_count', 'extension_count INTEGER DEFAULT 0')
-            _add_column_if_missing(app, 'semesters', 'max_extensions', 'max_extensions INTEGER DEFAULT 3')
-            _add_column_if_missing(app, 'semesters', 'status', 'status VARCHAR(20) DEFAULT \'active\'')
-            _add_column_if_missing(app, 'semesters', 'extension_reason', 'extension_reason TEXT NULL')
-            _add_column_if_missing(app, 'semesters', 'extended_by', 'extended_by VARCHAR(50) NULL')
-            _add_column_if_missing(app, 'semesters', 'extended_at', 'extended_at DATETIME NULL')
+            _add_column_if_missing('semesters', 'start_date', 'DATE NULL')
+            _add_column_if_missing('semesters', 'end_date', 'DATE NULL')
+            _add_column_if_missing('semesters', 'original_end_date', 'DATE NULL')
+            _add_column_if_missing('semesters', 'extension_count', 'INTEGER DEFAULT 0')
+            _add_column_if_missing('semesters', 'max_extensions', 'INTEGER DEFAULT 3')
+            _add_column_if_missing('semesters', 'status', 'VARCHAR(20) DEFAULT \'active\'')
+            _add_column_if_missing('semesters', 'extension_reason', 'TEXT NULL')
+            _add_column_if_missing('semesters', 'extended_by', 'VARCHAR(50) NULL')
+            _add_column_if_missing('semesters', 'extended_at', 'DATETIME NULL')
 
             # Migration for attendance table
-            _add_column_if_missing(app, 'attendance', 'student_id', 'student_id INTEGER NULL')
-            _add_column_if_missing(app, 'attendance', 'section_id', 'section_id INTEGER NULL')
-            _add_column_if_missing(app, 'attendance', 'date', 'date DATE NULL')
-            _add_column_if_missing(app, 'attendance', 'status', 'status VARCHAR(20) DEFAULT \'present\'')
-            _add_column_if_missing(app, 'attendance', 'notes', 'notes TEXT NULL')
-            _add_column_if_missing(app, 'attendance', 'created_at', 'created_at DATETIME NULL')
-            _add_column_if_missing(app, 'attendance', 'updated_at', 'updated_at DATETIME NULL')
+            _add_column_if_missing('attendance', 'student_id', 'INTEGER NULL')
+            _add_column_if_missing('attendance', 'section_id', 'INTEGER NULL')
+            _add_column_if_missing('attendance', 'date', 'DATE NULL')
+            _add_column_if_missing('attendance', 'status', 'VARCHAR(20) DEFAULT \'present\'')
+            _add_column_if_missing('attendance', 'notes', 'TEXT NULL')
+            _add_column_if_missing('attendance', 'created_at', 'DATETIME NULL')
+            _add_column_if_missing('attendance', 'updated_at', 'DATETIME NULL')
             
             # Migration for subject category
-            _add_column_if_missing(app, 'subjects', 'category', 'category VARCHAR(50) DEFAULT \'general\'')
+            _add_column_if_missing('subjects', 'category', 'VARCHAR(50) DEFAULT \'general\'')
             
             # Migration for grade is_retake
-            _add_column_if_missing(app, 'grades', 'is_retake', 'is_retake BOOLEAN DEFAULT 0')
+            _add_column_if_missing('grades', 'is_retake', 'BOOLEAN DEFAULT 0')
 
             # Seed default admin account
             if not UserModel.query.filter_by(username='admin').first():
@@ -163,9 +165,8 @@ def _init_database(app):
                 db.session.add(sem)
 
             db.session.commit()
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            print(f'[LỖI DATABASE]: {e}')
 
 
 app = create_app()

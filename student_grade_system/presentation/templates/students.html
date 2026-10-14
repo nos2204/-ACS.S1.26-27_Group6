@@ -50,8 +50,8 @@
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
+            <table class="table table-modern table-hover align-middle mb-0">
+                <thead>
                     <tr>
                         <th scope="col" class="ps-4" style="width: 60px;">#</th>
                         <th scope="col">Mã Sinh Viên</th>
@@ -92,17 +92,17 @@
                                 {{ student.date_of_birth if student.date_of_birth else '---' }}
                             </td>
                             <td class="text-end pe-4">
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('student_detail', student_id=student.id) }}" class="btn btn-outline-secondary" title="Xem chi tiết">
+                                <div class="action-buttons justify-content-end">
+                                    <a href="{{ url_for('student_detail', student_id=student.id) }}" class="action-btn action-btn-outline" title="Xem chi tiết">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="{{ url_for('manage_grades', student_id=student.id) }}" class="btn btn-outline-success" title="Quản lý điểm">
+                                    <a href="{{ url_for('manage_grades', student_id=student.id) }}" class="action-btn action-btn-success" title="Quản lý điểm">
                                         <i class="bi bi-bookmark-star"></i>
                                     </a>
-                                    <a href="{{ url_for('edit_student', student_id=student.id) }}" class="btn btn-outline-primary" title="Sửa thông tin">
+                                    <a href="{{ url_for('edit_student', student_id=student.id) }}" class="action-btn action-btn-primary" title="Sửa thông tin">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
-                                    <button type="button" class="btn btn-outline-danger" title="Xóa sinh viên" 
+                                    <button type="button" class="action-btn action-btn-danger" title="Xóa sinh viên"
                                             data-bs-toggle="modal" data-bs-target="#deleteModal{{ student.id }}">
                                         <i class="bi bi-trash3"></i>
                                     </button>

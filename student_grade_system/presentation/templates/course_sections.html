@@ -130,8 +130,8 @@
       <div class="card-body p-0">
         <div class="table-responsive">
 
-          <table class="table table-hover table-striped mb-0 align-middle">
-            <thead class="table-dark">
+          <table class="table table-modern table-hover mb-0 align-middle">
+            <thead>
               <tr>
                 <th>Mã lớp HP</th>
                 <th>Môn</th>
@@ -177,19 +177,19 @@
                 </td>
 
                 <td class="text-center">
-                  <div class="btn-group btn-group-sm">
+                  <div class="action-buttons justify-content-center">
 
                     <!-- Nhập điểm -->
-                    <a class="btn btn-outline-primary"
+                    <a class="action-btn action-btn-primary"
                        href="{{ url_for('section_grades', section_id=s.id) }}">
                       <i class="bi bi-pencil-square"></i>
                     </a>
 
                     <!-- Khóa điểm -->
                     <form method="POST"
-                          action="{{ url_for('toggle_section_lock', section_id=s.id) }}">
+                          action="{{ url_for('toggle_section_lock', section_id=s.id) }}" class="d-inline">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button class="btn btn-outline-warning">
+                      <button class="action-btn action-btn-outline">
                         <i class="bi bi-lock"></i>
                       </button>
                     </form>
@@ -197,9 +197,9 @@
                     <!-- Xóa -->
                     <form method="POST"
                           action="{{ url_for('delete_course_section', section_id=s.id) }}"
-                          onsubmit="return confirm('Xóa lớp học phần {{ s.section_code }}?')">
+                          onsubmit="return confirm('Xóa lớp học phần {{ s.section_code }}?')" class="d-inline">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button class="btn btn-outline-danger">
+                      <button class="action-btn action-btn-danger">
                         <i class="bi bi-trash"></i>
                       </button>
                     </form>
